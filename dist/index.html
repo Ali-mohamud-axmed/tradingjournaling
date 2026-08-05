@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TradeMaster - Premium Forex Journal & Analytics</title>
+  
+  <!-- CSS Stylesheets -->
+
+  <!-- Chart.js CDN for advanced charting -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="module" crossorigin src="/assets/index-Y7dBtKqN.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DLMQb6gr.css">
+</head>
+<body>
+
+  <!-- Main App Shell -->
+  <div id="app" class="app-container">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">TM</div>
+        <span class="logo-text">TradeMaster</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a class="nav-item active" data-view="dashboard">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+          <span class="sidebar-dashboard-text">Dashboard</span>
+        </a>
+        <a class="nav-item" data-view="journal">
+          <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <span class="sidebar-journal-text">Trading Journal</span>
+        </a>
+        <a class="nav-item" data-view="backtesting">
+          <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          <span class="sidebar-backtesting-text">Backtesting</span>
+        </a>
+        <a class="nav-item" data-view="calendar">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span class="sidebar-calendar-text">Calendar</span>
+        </a>
+        <a class="nav-item" data-view="analytics">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span class="sidebar-analytics-text">Analytics</span>
+        </a>
+        <a class="nav-item" data-view="gallery">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span class="sidebar-gallery-text">Gallery</span>
+        </a>
+        <a class="nav-item" data-view="reports">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span class="sidebar-reports-text">Reports</span>
+        </a>
+        <a class="nav-item" data-view="settings">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span class="sidebar-settings-text">Settings</span>
+        </a>
+        <a class="nav-item" data-view="admin" id="nav-admin-link" style="display: none;">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2" ry="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg>
+          <span class="sidebar-admin-text">Admin Panel</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-profile-summary" id="profile-summary">
+          <div class="avatar" id="profile-avatar">AT</div>
+          <div class="user-info">
+            <span class="username" id="profile-name">AlexTrader</span>
+            <span class="user-role">Premium Trader</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Wrapper -->
+    <main class="main-wrapper">
+      
+      <!-- Header bar -->
+      <header class="header">
+        <div class="header-title-area">
+          <h2 id="current-view-title">Dashboard</h2>
+        </div>
+        <div class="header-controls">
+          <!-- Language Selector -->
+          <div class="lang-selector-container">
+            <select id="lang-selector" class="form-control" style="width: auto; padding: 6px 12px; height: 38px; border-radius: var(--border-radius-md); font-weight: 600; cursor: pointer; background: var(--bg-tertiary); font-size: 13px;">
+              <option value="en">EN</option>
+              <option value="so">SO</option>
+            </select>
+          </div>
+          <!-- Global Search -->
+          <div class="global-search-container">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="global-search" class="global-search-input" placeholder="Search pair, strategy, date...">
+          </div>
+          <!-- Quick Action -->
+          <button id="quick-add-trade-btn" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span id="quick-add-trade-text">New Trade</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Viewport content wrapper -->
+      <section id="content-viewport" class="content-viewport">
+        <!-- Rendered view will be inserted dynamically by Router -->
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Shared Modals and Overlay Sheets -->
+
+  <!-- Drawer/Sliding panel for Trade Details view -->
+  <div class="drawer-overlay" id="trade-drawer-overlay"></div>
+  <div class="drawer-container" id="trade-drawer-container">
+    <!-- Rendered dynamically -->
+  </div>
+
+  <!-- Modal dialogue for Add/Edit Trade -->
+  <div class="modal-overlay" id="trade-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="modal-title">Log New Trade</h3>
+        <button class="modal-close" id="close-trade-modal-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="trade-form">
+        <div class="modal-body">
+          
+          <!-- Hidden IDs and Type context -->
+          <input type="hidden" id="form-trade-id">
+          <input type="hidden" id="form-journal-type" value="live"> <!-- 'live' or 'backtest' -->
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="form-date">Date</label>
+              <input type="date" id="form-date" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-session">Session</label>
+              <select id="form-session" class="form-control">
+                <option value="Asia">Asia</option>
+                <option value="London" selected>London</option>
+                <option value="New York">New York</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="form-pair">Pair</label>
+              <input type="text" id="form-pair" class="form-control" placeholder="EURUSD, GBPUSD..." required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-direction">Buy/Sell</label>
+              <select id="form-direction" class="form-control">
+                <option value="Buy">Buy</option>
+                <option value="Sell">Sell</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="form-entry">Entry Price</label>
+              <input type="number" id="form-entry" step="any" class="form-control" placeholder="1.08500" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-sl">Stop Loss</label>
+              <input type="number" id="form-sl" step="any" class="form-control" placeholder="1.08400" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-tp">Take Profit</label>
+              <input type="number" id="form-tp" step="any" class="form-control" placeholder="1.08800" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="form-risk">Risk %</label>
+              <input type="number" id="form-risk" step="0.1" class="form-control" placeholder="1.0" value="1.0">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-rr">Target RR</label>
+              <input type="number" id="form-rr" step="0.1" class="form-control" placeholder="Auto calculated" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-result">Result</label>
+              <select id="form-result" class="form-control">
+                <option value="Win">Win</option>
+                <option value="Loss">Loss</option>
+                <option value="Break Even">Break Even</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="form-strategy">Strategy</label>
+              <input type="text" id="form-strategy" class="form-control" placeholder="e.g. SMC, Reversal">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-setup">Setup Type</label>
+              <input type="text" id="form-setup" class="form-control" placeholder="e.g. 15m order block">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Checklist Confirmation</label>
+            <div id="checklist-selectors-area" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <!-- Populated by script -->
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="form-emotion">Emotion</label>
+              <select id="form-emotion" class="form-control">
+                <option value="Disciplined">Disciplined</option>
+                <option value="FOMO">FOMO</option>
+                <option value="Greedy">Greedy</option>
+                <option value="Anxious">Anxious</option>
+                <option value="Impulsive">Impulsive</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-mistakes">Mistake</label>
+              <select id="form-mistakes" class="form-control">
+                <option value="None">None</option>
+                <option value="FOMO Entry">FOMO Entry</option>
+                <option value="Over leveraged">Over leveraged</option>
+                <option value="Early Exit">Early Exit</option>
+                <option value="Moved SL to BE early">Moved SL to BE early</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="form-lessons">Lesson Learned</label>
+            <textarea id="form-lessons" rows="2" class="form-control" placeholder="What did this trade teach you?"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="form-notes">Trade Notes</label>
+            <textarea id="form-notes" rows="3" class="form-control" placeholder="Entry rules met? Volatility environment?"></textarea>
+          </div>
+
+          <!-- Screenshot uploaders -->
+          <div class="image-upload-wrapper">
+            <div class="form-group">
+              <label class="form-label">Before Screenshot</label>
+              <div class="image-dropzone" id="before-dropzone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <span>Upload Chart Setup</span>
+              </div>
+              <div class="image-preview" id="before-preview" style="display: none;"></div>
+              <input type="hidden" id="form-before-img">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">After Screenshot</label>
+              <div class="image-dropzone" id="after-dropzone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <span>Upload Chart Outcome</span>
+              </div>
+              <div class="image-preview" id="after-preview" style="display: none;"></div>
+              <input type="hidden" id="form-after-img">
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancel-trade-modal-btn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Trade</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Auth root container for login/register pages -->
+  <div id="auth-root" style="display:none;"></div>
+
+  <!-- Global invisible file inputs for image uploader -->
+  <input type="file" id="before-file-input" accept="image/*" style="display: none;">
+  <input type="file" id="after-file-input" accept="image/*" style="display: none;">
+
+  <!-- Core App Entry File -->
+
+</body>
+</html>
