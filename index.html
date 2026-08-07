@@ -145,9 +145,18 @@
             <div class="form-group">
               <label class="form-label" for="form-session">Session</label>
               <select id="form-session" class="form-control">
-                <option value="Asia">Asia</option>
+                <option value="Asian">Asian</option>
                 <option value="London" selected>London</option>
                 <option value="New York">New York</option>
+                <option value="NY Close">NY Close</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-account-type">Account Type</label>
+              <select id="form-account-type" class="form-control">
+                <option value="Challenge" selected>Challenge</option>
+                <option value="Funded">Funded</option>
+                <option value="Your Broker">Your Broker</option>
               </select>
             </div>
           </div>
@@ -155,7 +164,18 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="form-pair">Pair</label>
-              <input type="text" id="form-pair" class="form-control" placeholder="EURUSD, GBPUSD..." required>
+              <select id="form-pair" class="form-control" required>
+                <option value="EURUSD">EURUSD</option>
+                <option value="GBPUSD">GBPUSD</option>
+                <option value="XAUUSD">XAUUSD</option>
+                <option value="BTCUSD">BTCUSD</option>
+                <option value="USDJPY">USDJPY</option>
+                <option value="AUDUSD">AUDUSD</option>
+                <option value="USDCAD">USDCAD</option>
+                <option value="GBPJPY">GBPJPY</option>
+                <option value="ETHUSD">ETHUSD</option>
+                <option value="SOLUSD">SOLUSD</option>
+              </select>
             </div>
             <div class="form-group">
               <label class="form-label" for="form-direction">Buy/Sell</label>
@@ -191,6 +211,10 @@
               <input type="number" id="form-rr" step="0.1" class="form-control" placeholder="Auto calculated" readonly>
             </div>
             <div class="form-group">
+              <label class="form-label" for="form-pl-money">P/L Money ($)</label>
+              <input type="text" id="form-pl-money" class="form-control" placeholder="e.g. +300 or -100" required>
+            </div>
+            <div class="form-group">
               <label class="form-label" for="form-result">Result</label>
               <select id="form-result" class="form-control">
                 <option value="Win">Win</option>
@@ -208,6 +232,17 @@
             <div class="form-group">
               <label class="form-label" for="form-setup">Setup Type</label>
               <input type="text" id="form-setup" class="form-control" placeholder="e.g. 15m order block">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="form-label-a">A</label>
+              <input type="text" id="form-label-a" class="form-control" placeholder="e.g. 1h TSQ active">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-label-b">B</label>
+              <input type="text" id="form-label-b" class="form-control" placeholder="e.g. 4h IRL, 3am purge">
             </div>
           </div>
 
@@ -254,20 +289,26 @@
           <!-- Screenshot uploaders -->
           <div class="image-upload-wrapper">
             <div class="form-group">
-              <label class="form-label">Before Screenshot</label>
+              <label class="form-label">Before Screenshot / TV Link</label>
               <div class="image-dropzone" id="before-dropzone">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                 <span>Upload Chart Setup</span>
+              </div>
+              <div style="margin-top: 8px;">
+                <input type="text" id="form-before-tv-url" class="form-control" placeholder="Or paste TradingView Link...">
               </div>
               <div class="image-preview" id="before-preview" style="display: none;"></div>
               <input type="hidden" id="form-before-img">
             </div>
 
             <div class="form-group">
-              <label class="form-label">After Screenshot</label>
+              <label class="form-label">After Screenshot / TV Link</label>
               <div class="image-dropzone" id="after-dropzone">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                 <span>Upload Chart Outcome</span>
+              </div>
+              <div style="margin-top: 8px;">
+                <input type="text" id="form-after-tv-url" class="form-control" placeholder="Or paste TradingView Link...">
               </div>
               <div class="image-preview" id="after-preview" style="display: none;"></div>
               <input type="hidden" id="form-after-img">

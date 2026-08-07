@@ -412,6 +412,14 @@ export function openBacktestModal(record = null) {
                 <option value="New York" ${record?.session === 'New York' ? 'selected' : ''}>New York</option>
               </select>
             </div>
+            <div class="form-group">
+              <label class="form-label" for="back-account-type">Account Type</label>
+              <select id="back-account-type" class="form-control">
+                <option value="Challenge" ${record?.accountType === 'Challenge' || !record ? 'selected' : ''}>Challenge</option>
+                <option value="Funded" ${record?.accountType === 'Funded' ? 'selected' : ''}>Funded</option>
+                <option value="Your Broker" ${record?.accountType === 'Your Broker' ? 'selected' : ''}>Your Broker</option>
+              </select>
+            </div>
           </div>
 
           <div class="form-row">
@@ -523,10 +531,23 @@ export function openBacktestModal(record = null) {
 
   modal.classList.add('active');
 
+  const isImmutable = Boolean(record?.immutable);
+
   // Input elements
   const directionSelect = document.getElementById('back-direction');
   const targetRRInput = document.getElementById('back-target-rr');
   const resultSelect = document.getElementById('back-result');
+  const form = document.getElementById('backtest-form');
+  const submitButton = form?.querySelector('button[type="submit"]');
+  const allControls = form?.querySelectorAll('input, select, textarea, button');
+
+  allControls?.forEach(control => {
+    if (control.id === 'cancel-backtest-modal-btn' || control.id === 'close-backtest-modal-btn') return;
+    control.disabled = isImmutable;
+  });
+  if (submitButton) {
+    submitButton.textContent = isImmutable ? 'Locked' : 'Save Backtest';
+  }
 
   // Modal closers
   const closeModal = () => modal.classList.remove('active');
@@ -561,6 +582,7 @@ export function openBacktestModal(record = null) {
       user_id: AppState.user.email,
       date: dateStr,
       session: document.getElementById('back-session').value,
+      accountType: document.getElementById('back-account-type').value,
       pair: document.getElementById('back-pair').value.trim().toUpperCase(),
       direction: directionSelect.value,
       strategy: document.getElementById('back-strategy').value.trim(),
@@ -576,6 +598,7 @@ export function openBacktestModal(record = null) {
       notes: document.getElementById('back-notes').value.trim(),
       before_image: document.getElementById('back-before-img').value || null,
       after_image: document.getElementById('back-after-img').value || null,
+      immutable: true,
       updated_at: new Date().toISOString()
     };
 

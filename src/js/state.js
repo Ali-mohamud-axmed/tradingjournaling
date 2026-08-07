@@ -9,6 +9,7 @@ export const AppState = {
   strategies: [], // Custom strategies
   checklists: [], // Custom checklists
   activeDashboardTab: 'live', // 'live' or 'backtest' in dashboard view
+  selectedAccount: 'All', // Default portfolio account filter for reports/dashboard
   listeners: [], // UI listeners for updates
   language: 'en', // 'en' or 'so'
 
@@ -77,15 +78,17 @@ export const AppState = {
       const allStrats = await getStoreData('Strategies');
       const allChecks = await getStoreData('Checklists');
 
+      const normalizeEntries = (entries = []) => entries.map(entry => ({ ...entry, immutable: entry.immutable ?? true }));
+
       if (this.user) {
         if (this.user.role === 'admin') {
-          this.tradingTrades = allLive;
-          this.backtestTrades = allBack;
+          this.tradingTrades = normalizeEntries(allLive);
+          this.backtestTrades = normalizeEntries(allBack);
           this.strategies = allStrats;
           this.checklists = allChecks;
         } else {
-          this.tradingTrades = allLive.filter(t => t.userEmail === this.user.email);
-          this.backtestTrades = allBack.filter(t => t.user_id === this.user.email);
+          this.tradingTrades = normalizeEntries(allLive.filter(t => t.userEmail === this.user.email));
+          this.backtestTrades = normalizeEntries(allBack.filter(t => t.user_id === this.user.email));
           this.strategies = allStrats.filter(s => s.userEmail === this.user.email);
           this.checklists = allChecks.filter(c => c.userEmail === this.user.email);
         }
@@ -109,6 +112,11 @@ export const AppState = {
 
   setDashboardTab(tabName) {
     this.activeDashboardTab = tabName;
+    this.notifyListeners();
+  },
+
+  setSelectedAccount(account) {
+    this.selectedAccount = account || 'All';
     this.notifyListeners();
   },
 

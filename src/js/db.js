@@ -414,374 +414,157 @@ export async function populateMockDataIfEmpty() {
     }
   }
 
+  // Helper to generate realistic historical trades spanning 5 years (2022 to 2026)
+  function generateMockTrades(userEmail, isBacktest) {
+    const accountSizes = {
+      'Challenge': 100000,
+      'Funded': 50000,
+      'Your Broker': 10000
+    };
+    const sessions = ['Asian', 'London', 'New York', 'NY Close'];
+    const pairs = ['EURUSD', 'GBPUSD', 'XAUUSD', 'BTCUSD', 'USDJPY', 'AUDUSD', 'USDCAD'];
+    const directions = ['Buy', 'Sell'];
+    const results = ['Win', 'Loss', 'Break Even'];
+    const strategies = ['SMC Order Block', 'Liquidity Grab & Reversal', 'Support & Resistance Bounce'];
+    const timeframes = ['M5', 'M15', 'M30', 'H1', 'H4'];
+
+    const trades = [];
+    const years = [2022, 2023, 2024, 2025, 2026];
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+
+    years.forEach(year => {
+      // Determine how many months to generate for this year
+      const maxMonth = year === currentYear ? currentMonth : 11;
+      for (let month = 0; month <= maxMonth; month++) {
+        // Generate 2 to 3 trades per month to have enough sample size but keep IndexedDB insertion fast
+        const numTrades = Math.floor(Math.random() * 2) + 2; // 2 or 3 trades
+        for (let t = 0; t < numTrades; t++) {
+          const day = Math.floor(Math.random() * 28) + 1;
+          const monthStr = String(month + 1).padStart(2, '0');
+          const dayStr = String(day).padStart(2, '0');
+          const dateStr = `${year}-${monthStr}-${dayStr}`;
+
+          // Skip if generated date is in the future
+          if (new Date(dateStr) > currentDate) continue;
+
+          // Select Account Type with weight
+          const rAcc = Math.random();
+          let accountType = 'Challenge';
+          if (rAcc < 0.45) accountType = 'Challenge';
+          else if (rAcc < 0.9) accountType = 'Funded';
+          else accountType = 'Your Broker';
+
+          const accountSize = accountSizes[accountType];
+
+          // Select Session with weight
+          const rSess = Math.random();
+          let session = 'London';
+          if (rSess < 0.15) session = 'Asian';
+          else if (rSess < 0.55) session = 'London';
+          else if (rSess < 0.9) session = 'New York';
+          else session = 'NY Close';
+
+          // Select Result with weight
+          const rRes = Math.random();
+          let result = 'Win';
+          if (rRes < 0.58) result = 'Win';
+          else if (rRes < 0.93) result = 'Loss';
+          else result = 'Break Even';
+
+          const pair = pairs[Math.floor(Math.random() * pairs.length)];
+          const direction = directions[Math.floor(Math.random() * directions.length)];
+          const strategy = strategies[Math.floor(Math.random() * strategies.length)];
+          const timeframe = timeframes[Math.floor(Math.random() * timeframes.length)];
+
+          const riskPercent = Math.random() < 0.7 ? 1.0 : (Math.random() < 0.5 ? 0.5 : 1.5);
+          const targetRR = parseFloat((Math.random() * 2.5 + 2).toFixed(2)); // 2.0 to 4.5
+
+          let actualRR = 0;
+          let plVal = 0;
+          if (result === 'Win') {
+            actualRR = targetRR;
+            plVal = parseFloat((accountSize * (riskPercent / 100) * targetRR).toFixed(2));
+          } else if (result === 'Loss') {
+            actualRR = -1.0;
+            plVal = parseFloat((-accountSize * (riskPercent / 100)).toFixed(2));
+          } else {
+            actualRR = 0;
+            plVal = 0.0;
+          }
+
+          const dayOfWeek = new Date(dateStr).toLocaleDateString('en-US', { weekday: 'long' });
+
+          if (isBacktest) {
+            trades.push({
+              user_id: userEmail,
+              date: dateStr,
+              session,
+              pair,
+              direction,
+              strategy,
+              timeframe,
+              risk_percent: riskPercent,
+              target_rr: targetRR,
+              actual_rr: actualRR,
+              result,
+              lesson_learned: `Historical backtest trade for ${strategy} showing ${result}.`,
+              notes: 'Aggregated historical statistics entry.',
+              before_image: createMockChartSVG(true, result === 'Win', pair, direction),
+              after_image: createMockChartSVG(false, result === 'Win', pair, direction),
+              accountType,
+              pl_money: plVal,
+              immutable: true,
+              created_at: new Date(dateStr).toISOString(),
+              updated_at: new Date(dateStr).toISOString()
+            });
+          } else {
+            trades.push({
+              userEmail,
+              date: dateStr,
+              day: dayOfWeek,
+              session,
+              pair,
+              type: direction,
+              entryPrice: parseFloat((Math.random() * 100 + 1).toFixed(4)),
+              stopLoss: parseFloat((Math.random() * 100 + 1).toFixed(4)),
+              takeProfit: parseFloat((Math.random() * 100 + 1).toFixed(4)),
+              riskPercent,
+              rr: targetRR,
+              result,
+              strategy,
+              setup: `${timeframe} structural setup`,
+              checklist: ['HTF Trend Aligned', 'OB Tapped', 'Risk defined'],
+              emotion: 'Disciplined',
+              mistakes: 'None',
+              lessonLearned: `Historical live trade for ${strategy} showing ${result}.`,
+              notes: 'Aggregated historical live statistics entry.',
+              beforeScreenshot: createMockChartSVG(true, result === 'Win', pair, direction),
+              afterScreenshot: createMockChartSVG(false, result === 'Win', pair, direction),
+              accountType,
+              plMoney: plVal,
+              immutable: true
+            });
+          }
+        }
+      }
+    });
+
+    return trades;
+  }
+
   // Populate Live Trades
   if (liveTrades.length === 0) {
-    const mockLive = [
-      {
-        date: '2026-07-01',
-        day: 'Wednesday',
-        session: 'London',
-        pair: 'EURUSD',
-        type: 'Buy',
-        entryPrice: 1.08500,
-        stopLoss: 1.08400,
-        takeProfit: 1.08800,
-        riskPercent: 1.0,
-        rr: 3.0,
-        result: 'Win',
-        strategy: 'SMC Order Block',
-        setup: '15m Bullish OB Tap',
-        checklist: ['HTF Trend Aligned', 'OB Tapped', 'Risk defined'],
-        emotion: 'Disciplined',
-        mistakes: 'None',
-        lessonLearned: 'Patience pays off. Waited for the tap.',
-        notes: 'Price tapped the 15m OB right at London open and rallied.',
-        beforeScreenshot: createMockChartSVG(true, true, 'EURUSD', 'Buy'),
-        afterScreenshot: createMockChartSVG(false, true, 'EURUSD', 'Buy')
-      },
-      {
-        date: '2026-07-02',
-        day: 'Thursday',
-        session: 'New York',
-        pair: 'GBPUSD',
-        type: 'Sell',
-        entryPrice: 1.26800,
-        stopLoss: 1.27100,
-        takeProfit: 1.25900,
-        riskPercent: 1.5,
-        rr: 3.0,
-        result: 'Loss',
-        strategy: 'Liquidity Grab & Reversal',
-        setup: 'NY Session High Sweep',
-        checklist: ['Liquidity Swept', 'Risk defined'],
-        emotion: 'Anxious',
-        mistakes: 'FOMO',
-        lessonLearned: 'Do not chase if entry is missed. Wait for pullback.',
-        notes: 'Felt like I was missing the drop, entered late, stopped out before reversal.',
-        beforeScreenshot: createMockChartSVG(true, false, 'GBPUSD', 'Sell'),
-        afterScreenshot: createMockChartSVG(false, false, 'GBPUSD', 'Sell')
-      },
-      {
-        date: '2026-07-03',
-        day: 'Friday',
-        session: 'Asia',
-        pair: 'USDJPY',
-        type: 'Buy',
-        entryPrice: 155.500,
-        stopLoss: 155.200,
-        takeProfit: 156.100,
-        riskPercent: 0.5,
-        rr: 2.0,
-        result: 'Break Even',
-        strategy: 'Support & Resistance Bounce',
-        setup: '155.50 Support test',
-        checklist: ['HTF Trend Aligned', 'Risk defined'],
-        emotion: 'Disciplined',
-        mistakes: 'None',
-        lessonLearned: 'Moved stop loss to entry correctly as target 1 hit.',
-        notes: 'Rallied to +1R then reversed back to entry.',
-        beforeScreenshot: createMockChartSVG(true, true, 'USDJPY', 'Buy'),
-        afterScreenshot: createMockChartSVG(false, false, 'USDJPY', 'Buy')
-      },
-      {
-        date: '2026-07-06',
-        day: 'Monday',
-        session: 'London',
-        pair: 'XAUUSD',
-        type: 'Sell',
-        entryPrice: 2320.00,
-        stopLoss: 2325.00,
-        takeProfit: 2300.00,
-        riskPercent: 1.0,
-        rr: 4.0,
-        result: 'Win',
-        strategy: 'SMC Order Block',
-        setup: '4H Supply Zone Reject',
-        checklist: ['HTF Trend Aligned', 'OB Tapped', 'Risk defined'],
-        emotion: 'Disciplined',
-        mistakes: 'None',
-        lessonLearned: 'Trust higher timeframe structural bias.',
-        notes: 'Beautiful clean rejection off 4H supply.',
-        beforeScreenshot: createMockChartSVG(true, true, 'XAUUSD', 'Sell'),
-        afterScreenshot: createMockChartSVG(false, true, 'XAUUSD', 'Sell')
-      },
-      {
-        date: '2026-07-07',
-        day: 'Tuesday',
-        session: 'New York',
-        pair: 'EURUSD',
-        type: 'Sell',
-        entryPrice: 1.09200,
-        stopLoss: 1.09400,
-        takeProfit: 1.08600,
-        riskPercent: 1.0,
-        rr: 3.0,
-        result: 'Win',
-        strategy: 'Liquidity Grab & Reversal',
-        setup: 'NY Session High Sweep',
-        checklist: ['Liquidity Swept', 'MSS on LTF', 'Risk defined'],
-        emotion: 'Disciplined',
-        mistakes: 'None',
-        lessonLearned: 'Sweeping daily highs leads to strong intraday reversals.',
-        notes: 'Excellent high grab confirmation.',
-        beforeScreenshot: createMockChartSVG(true, true, 'EURUSD', 'Sell'),
-        afterScreenshot: createMockChartSVG(false, true, 'EURUSD', 'Sell')
-      },
-      {
-        date: '2026-07-07',
-        day: 'Tuesday',
-        session: 'London',
-        pair: 'GBPUSD',
-        type: 'Buy',
-        entryPrice: 1.27200,
-        stopLoss: 1.27000,
-        takeProfit: 1.27800,
-        riskPercent: 1.0,
-        rr: 3.0,
-        result: 'Loss',
-        strategy: 'SMC Order Block',
-        setup: '1H demand zone block',
-        checklist: ['OB Tapped', 'Risk defined'],
-        emotion: 'Greedy',
-        mistakes: 'Over-leveraged',
-        lessonLearned: 'Check major news calendars before entering near London sessions.',
-        notes: 'Tapped demand but UK CPI data spiked and stopped me out immediately.',
-        beforeScreenshot: createMockChartSVG(true, false, 'GBPUSD', 'Buy'),
-        afterScreenshot: createMockChartSVG(false, false, 'GBPUSD', 'Buy')
-      }
-    ];
-
+    const mockLive = generateMockTrades('alex.forex@master.com', false);
     for (const trade of mockLive) {
-      trade.userEmail = 'alex.forex@master.com';
       await addStoreData('TradingJournal', trade);
     }
   }
 
   // Populate Backtesting Trades
   if (backtestTrades.length === 0) {
-    const mockBacktesting = [
-      {
-        user_id: 'alex.forex@master.com',
-        date: '2026-06-01',
-        session: 'New York',
-        pair: 'EURUSD',
-        strategy: 'SMC Order Block',
-        timeframe: '15m',
-        direction: 'Buy',
-        entry_price: 1.07800,
-        stop_loss: 1.07600,
-        take_profit: 1.08400,
-        risk_percent: 1.0,
-        target_rr: 3.0,
-        actual_rr: 3.0,
-        result: 'Win',
-        lesson_learned: 'Classic bullish structural continuation block.',
-        notes: 'Perfect mitigation, quick run to target.',
-        before_image: createMockChartSVG(true, true, 'EURUSD', 'Buy'),
-        after_image: createMockChartSVG(false, true, 'EURUSD', 'Buy'),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      {
-        user_id: 'alex.forex@master.com',
-        date: '2026-06-03',
-        session: 'London',
-        pair: 'GBPUSD',
-        strategy: 'SMC Order Block',
-        timeframe: '15m',
-        direction: 'Buy',
-        entry_price: 1.25400,
-        stop_loss: 1.25200,
-        take_profit: 1.26000,
-        risk_percent: 1.0,
-        target_rr: 3.0,
-        actual_rr: 3.0,
-        result: 'Win',
-        lesson_learned: 'Dip was fast, order execution filled nicely.',
-        notes: 'High probability SMC setup.',
-        before_image: createMockChartSVG(true, true, 'GBPUSD', 'Buy'),
-        after_image: createMockChartSVG(false, true, 'GBPUSD', 'Buy'),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      {
-        user_id: 'alex.forex@master.com',
-        date: '2026-06-05',
-        session: 'New York',
-        pair: 'GBPUSD',
-        strategy: 'Liquidity Grab & Reversal',
-        timeframe: '1H',
-        direction: 'Sell',
-        entry_price: 1.26200,
-        stop_loss: 1.26400,
-        take_profit: 1.25600,
-        risk_percent: 1.0,
-        target_rr: 3.0,
-        actual_rr: -1.0,
-        result: 'Loss',
-        lesson_learned: 'Sometimes sweeps turn into full structural breaks.',
-        notes: 'Structure failed, price continued trading higher into daily resistance.',
-        before_image: createMockChartSVG(true, false, 'GBPUSD', 'Sell'),
-        after_image: createMockChartSVG(false, false, 'GBPUSD', 'Sell'),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      {
-        user_id: 'alex.forex@master.com',
-        date: '2026-06-09',
-        session: 'London',
-        pair: 'EURUSD',
-        strategy: 'SMC Order Block',
-        timeframe: '15m',
-        direction: 'Sell',
-        entry_price: 1.08200,
-        stop_loss: 1.08350,
-        take_profit: 1.07600,
-        risk_percent: 1.0,
-        target_rr: 4.0,
-        actual_rr: 4.0,
-        result: 'Win',
-        lesson_learned: 'R:R is maximized when using HTF boundaries with LTF triggers.',
-        notes: 'Very clean delivery of orders.',
-        before_image: createMockChartSVG(true, true, 'EURUSD', 'Sell'),
-        after_image: createMockChartSVG(false, true, 'EURUSD', 'Sell'),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      {
-        user_id: 'alex.forex@master.com',
-        date: '2026-06-12',
-        session: 'Asia',
-        pair: 'USDJPY',
-        strategy: 'Support & Resistance Bounce',
-        timeframe: '4H',
-        direction: 'Buy',
-        entry_price: 154.200,
-        stop_loss: 154.000,
-        take_profit: 154.800,
-        risk_percent: 1.0,
-        target_rr: 3.0,
-        actual_rr: -1.0,
-        result: 'Loss',
-        lesson_learned: 'Support holds work best when accompanied by volume divergence.',
-        notes: 'Price broke straight through the support level without halting.',
-        before_image: createMockChartSVG(true, false, 'USDJPY', 'Buy'),
-        after_image: createMockChartSVG(false, false, 'USDJPY', 'Buy'),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      {
-        user_id: 'alex.forex@master.com',
-        date: '2026-06-15',
-        session: 'New York',
-        pair: 'XAUUSD',
-        strategy: 'Liquidity Grab & Reversal',
-        timeframe: '15m',
-        direction: 'Sell',
-        entry_price: 2350.00,
-        stop_loss: 2355.00,
-        take_profit: 2335.00,
-        risk_percent: 1.0,
-        target_rr: 3.0,
-        actual_rr: 3.0,
-        result: 'Win',
-        lesson_learned: 'Gold NYC reversal is one of the most reliable trade setups.',
-        notes: 'Classic gold sweep. NY volume expedited the drop.',
-        before_image: createMockChartSVG(true, true, 'XAUUSD', 'Sell'),
-        after_image: createMockChartSVG(false, true, 'XAUUSD', 'Sell'),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      {
-        user_id: 'alex.forex@master.com',
-        date: '2026-06-18',
-        session: 'London',
-        pair: 'EURUSD',
-        strategy: 'Support & Resistance Bounce',
-        timeframe: '30m',
-        direction: 'Buy',
-        entry_price: 1.07400,
-        stop_loss: 1.07200,
-        take_profit: 1.08000,
-        risk_percent: 1.0,
-        target_rr: 3.0,
-        actual_rr: 3.0,
-        result: 'Win',
-        lesson_learned: 'High reward zone entry.',
-        notes: 'Classic double bottom verification.',
-        before_image: createMockChartSVG(true, true, 'EURUSD', 'Buy'),
-        after_image: createMockChartSVG(false, true, 'EURUSD', 'Buy'),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      {
-        user_id: 'alex.forex@master.com',
-        date: '2026-06-22',
-        session: 'New York',
-        pair: 'GBPUSD',
-        strategy: 'SMC Order Block',
-        timeframe: '15m',
-        direction: 'Sell',
-        entry_price: 1.25800,
-        stop_loss: 1.26000,
-        take_profit: 1.25200,
-        risk_percent: 1.0,
-        target_rr: 3.0,
-        actual_rr: 0.0,
-        result: 'Break Even',
-        lesson_learned: 'Securing BE at 1R is crucial in range-bound market conditions.',
-        notes: 'Price reached +1.5R then reversed aggressively.',
-        before_image: createMockChartSVG(true, true, 'GBPUSD', 'Sell'),
-        after_image: createMockChartSVG(false, false, 'GBPUSD', 'Sell'),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      {
-        user_id: 'alex.forex@master.com',
-        date: '2026-06-25',
-        session: 'London',
-        pair: 'EURUSD',
-        strategy: 'Liquidity Grab & Reversal',
-        timeframe: '5m',
-        direction: 'Sell',
-        entry_price: 1.08900,
-        stop_loss: 1.09100,
-        take_profit: 1.08300,
-        risk_percent: 1.0,
-        target_rr: 3.0,
-        actual_rr: -1.0,
-        result: 'Loss',
-        lesson_learned: 'Asia session grabs are lower probability if London starts trending.',
-        notes: 'Stopped out quickly. Trend was too strong.',
-        before_image: createMockChartSVG(true, false, 'EURUSD', 'Sell'),
-        after_image: createMockChartSVG(false, false, 'EURUSD', 'Sell'),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      {
-        user_id: 'alex.forex@master.com',
-        date: '2026-06-29',
-        session: 'New York',
-        pair: 'XAUUSD',
-        strategy: 'SMC Order Block',
-        timeframe: '1H',
-        direction: 'Buy',
-        entry_price: 2315.00,
-        stop_loss: 2310.00,
-        take_profit: 2335.00,
-        risk_percent: 1.0,
-        target_rr: 4.0,
-        actual_rr: 4.0,
-        result: 'Win',
-        lesson_learned: 'High-conviction setups warrant maximum position sizing (1%).',
-        notes: 'Tapped and launched immediately. Incredible trade.',
-        before_image: createMockChartSVG(true, true, 'XAUUSD', 'Buy'),
-        after_image: createMockChartSVG(false, true, 'XAUUSD', 'Buy'),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-    ];
-
+    const mockBacktesting = generateMockTrades('alex.forex@master.com', true);
     for (const trade of mockBacktesting) {
       await addStoreData('BacktestingJournal', trade);
     }

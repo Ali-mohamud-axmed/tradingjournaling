@@ -9,7 +9,10 @@ export function renderSettings(container) {
     currency: 'USD',
     riskDefault: 1.0,
     notifications: true,
-    role: 'user'
+    role: 'user',
+    challengeSize: 100000,
+    fundedSize: 50000,
+    brokerSize: 10000
   };
 
   const isLight = document.body.classList.contains('light-theme');
@@ -58,6 +61,20 @@ export function renderSettings(container) {
           </div>
           <div class="form-row">
             <div class="form-group">
+              <label class="form-label" for="set-challenge-size">Challenge Account Capital Size ($)</label>
+              <input type="number" id="set-challenge-size" class="form-control" value="${user.challengeSize ?? 100000}">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="set-funded-size">Funded Account Capital Size ($)</label>
+              <input type="number" id="set-funded-size" class="form-control" value="${user.fundedSize ?? 50000}">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="set-broker-size">Your Broker Account Capital Size ($)</label>
+              <input type="number" id="set-broker-size" class="form-control" value="${user.brokerSize ?? 10000}">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
               <label class="form-label">${t('colRole')}</label>
               <input type="text" class="form-control" value="${(user.role || 'user').toUpperCase()}" readonly style="opacity: 0.7; cursor: not-allowed; background: var(--bg-primary);">
             </div>
@@ -66,6 +83,28 @@ export function renderSettings(container) {
             <button type="submit" class="btn btn-primary">${t('saveChanges')}</button>
           </div>
         </form>
+      </div>
+
+      <!-- Custom Checklist Builder Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Custom Checklist Rule Builder
+          </div>
+        </div>
+        <div style="padding: 4px 0;">
+          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+            Define custom confirmation criteria to display when logging live trades and backtests.
+          </p>
+          <div id="settings-checklist-items-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+            <!-- Rendered by script -->
+          </div>
+          <div style="display: flex; gap: 12px;">
+            <input type="text" id="new-checklist-item-input" class="form-control" placeholder="e.g. 4h FVG filled" style="flex: 1;">
+            <button class="btn btn-primary" id="add-checklist-item-btn" style="padding: 0 16px; height: 38px;">Add Rule</button>
+          </div>
+        </div>
       </div>
 
       <!-- App preferences -->
@@ -131,11 +170,72 @@ export function renderSettings(container) {
       email: document.getElementById('set-email').value,
       fullName: document.getElementById('set-fullname').value,
       currency: document.getElementById('set-currency').value,
-      riskDefault: parseFloat(document.getElementById('set-risk').value || 1)
+      riskDefault: parseFloat(document.getElementById('set-risk').value || 1),
+      challengeSize: parseFloat(document.getElementById('set-challenge-size').value || 100000),
+      fundedSize: parseFloat(document.getElementById('set-funded-size').value || 50000),
+      brokerSize: parseFloat(document.getElementById('set-broker-size').value || 10000)
     };
     AppState.updateProfile(updatedUser);
     alert(t('profileUpdated'));
   });
+
+  // Checklist Builder Logic
+  const checklistList = document.getElementById('settings-checklist-items-list');
+  const newItemInput = document.getElementById('new-checklist-item-input');
+  const addItemBtn = document.getElementById('add-checklist-item-btn');
+
+  const activeChecklist = AppState.checklists[0] || {
+    name: 'Standard Confirmation',
+    items: ['HTF Trend Aligned', 'Liquidity Swept', 'OB Tapped', 'Risk defined'],
+    userEmail: user.email
+  };
+
+  function renderChecklistItems() {
+    if (!checklistList) return;
+    if (activeChecklist.items.length === 0) {
+      checklistList.innerHTML = `<span style="font-size:13px; color:var(--text-muted);">No rules defined yet. Add one below!</span>`;
+      return;
+    }
+    checklistList.innerHTML = activeChecklist.items.map((item, index) => `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-tertiary); border-radius: var(--border-radius-md); border: 1px solid var(--border-color);">
+        <span style="font-size: 13px; font-weight: 600; color: var(--text-primary);">${item}</span>
+        <button class="btn btn-secondary delete-chk-item-btn" data-index="${index}" style="padding: 4px 8px; height: auto; font-size: 12px; color: var(--color-loss); border-color: transparent; background: transparent;">&times; Delete</button>
+      </div>
+    `).join('');
+
+    // Bind delete buttons
+    checklistList.querySelectorAll('.delete-chk-item-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = parseInt(btn.dataset.index);
+        activeChecklist.items.splice(idx, 1);
+        await saveChecklist();
+      });
+    });
+  }
+
+  async function saveChecklist() {
+    const { addStoreData, updateStoreData } = await import('../db.js');
+    if (activeChecklist.id) {
+      await updateStoreData('Checklists', activeChecklist);
+    } else {
+      const added = await addStoreData('Checklists', activeChecklist);
+      activeChecklist.id = added.id || added;
+    }
+    await AppState.refreshCache();
+    renderChecklistItems();
+  }
+
+  if (addItemBtn) {
+    addItemBtn.addEventListener('click', async () => {
+      const text = newItemInput.value.trim();
+      if (!text) return;
+      activeChecklist.items.push(text);
+      newItemInput.value = '';
+      await saveChecklist();
+    });
+  }
+
+  renderChecklistItems();
 
   // Toggle Theme
   document.getElementById('theme-toggle-btn').addEventListener('click', () => {

@@ -21,8 +21,9 @@ export function renderDashboard(container) {
         <button class="btn ${activeTab === 'live' ? 'btn-primary' : 'btn-secondary'}" id="tab-live-btn" style="padding: 8px 16px; font-size: 13px;">Live Trading</button>
         <button class="btn ${activeTab === 'backtest' ? 'btn-primary' : 'btn-secondary'}" id="tab-backtest-btn" style="padding: 8px 16px; font-size: 13px;">Backtesting</button>
       </div>
-      <div>
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
         <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Data Status: <span style="color: var(--color-win)">● Sync Complete</span></span>
+        <span style="font-size: 12px; padding: 6px 10px; border-radius: 999px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); font-weight: 700;">Account: ${AppState.selectedAccount || 'All'}</span>
       </div>
     </div>
 

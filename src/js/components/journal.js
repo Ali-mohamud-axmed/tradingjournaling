@@ -129,6 +129,8 @@ export function renderJournal(container, journalType = 'live') {
         t.session.toLowerCase().includes(q) ||
         t.result.toLowerCase().includes(q) ||
         t.date.includes(q) ||
+        (t.labelA && t.labelA.toLowerCase().includes(q)) ||
+        (t.labelB && t.labelB.toLowerCase().includes(q)) ||
         (t.notes && t.notes.toLowerCase().includes(q))
       );
     }
@@ -161,7 +163,7 @@ export function renderJournal(container, journalType = 'live') {
     // Render Table Rows
     const tbody = document.getElementById('journal-table-body');
     if (filteredTrades.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 48px; color: var(--text-muted);">No records found matching current criteria.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 48px; color: var(--text-muted);">No records found matching current criteria.</td></tr>`;
       return;
     }
 
@@ -182,6 +184,8 @@ export function renderJournal(container, journalType = 'live') {
           <td>${t.riskPercent}%</td>
           <td>${t.strategy || 'N/A'}</td>
           <td style="color: var(--text-secondary); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${t.setup || 'N/A'}</td>
+          <td>${t.labelA || '—'}</td>
+          <td>${t.labelB || '—'}</td>
         </tr>
       `;
     }).join('');
@@ -304,6 +308,8 @@ function openDetailsDrawer(trade, storeName, journalType) {
           <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: var(--text-secondary);">Take Profit</span><span style="font-weight: 600; color: var(--text-primary);">${trade.takeProfit}</span></div>
           <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: var(--text-secondary);">Risk Percentage</span><span style="font-weight: 600; color: var(--text-primary);">${trade.riskPercent}%</span></div>
           <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: var(--text-secondary);">Risk-to-Reward</span><span style="font-weight: 600; color: var(--text-primary);">${trade.rr}:1</span></div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: var(--text-secondary);">Label A</span><span style="font-weight: 600; color: var(--text-primary);">${trade.labelA || '—'}</span></div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: var(--text-secondary);">Label B</span><span style="font-weight: 600; color: var(--text-primary);">${trade.labelB || '—'}</span></div>
         </div>
       </div>
 
@@ -382,19 +388,29 @@ function openDetailsDrawer(trade, storeName, journalType) {
   drawerOverlay.addEventListener('click', closeDrawer);
 
   // Delete trade handler
-  document.getElementById('delete-trade-btn').addEventListener('click', async () => {
-    if (confirm('Are you sure you want to delete this trade record permanently?')) {
-      await deleteStoreData(storeName, trade.id);
-      closeDrawer();
-      AppState.refreshCache();
-    }
-  });
+  const deleteButton = document.getElementById('delete-trade-btn');
+  const editButton = document.getElementById('edit-trade-btn');
 
-  // Edit trade handler
-  document.getElementById('edit-trade-btn').addEventListener('click', () => {
-    closeDrawer();
-    openTradeModal(trade, journalType);
-  });
+  if (trade.immutable) {
+    deleteButton.remove();
+    editButton.textContent = 'Locked Entry';
+    editButton.disabled = true;
+    editButton.classList.add('btn-secondary');
+    editButton.classList.remove('btn-primary');
+  } else {
+    deleteButton.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to delete this trade record permanently?')) {
+        await deleteStoreData(storeName, trade.id);
+        closeDrawer();
+        AppState.refreshCache();
+      }
+    });
+
+    editButton.addEventListener('click', () => {
+      closeDrawer();
+      openTradeModal(trade, journalType);
+    });
+  }
 
   // Click on chart opens a beautiful fullscreen comparison viewer modal
   document.querySelectorAll('.details-chart-img').forEach(img => {

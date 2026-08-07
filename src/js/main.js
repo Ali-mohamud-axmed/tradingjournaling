@@ -271,6 +271,7 @@ function initModalLogic() {
       date: dateStr,
       day: dayOfWeek,
       session: document.getElementById('form-session').value,
+      accountType: document.getElementById('form-account-type').value,
       pair: document.getElementById('form-pair').value.toUpperCase(),
       type: directionSelect.value,
       entryPrice: parseFloat(entryInput.value),
@@ -281,13 +282,16 @@ function initModalLogic() {
       result: document.getElementById('form-result').value,
       strategy: document.getElementById('form-strategy').value,
       setup: document.getElementById('form-setup').value,
+      labelA: document.getElementById('form-label-a').value,
+      labelB: document.getElementById('form-label-b').value,
       checklist: checkedChecklist,
       emotion: document.getElementById('form-emotion').value,
       mistakes: document.getElementById('form-mistakes').value,
       lessonLearned: document.getElementById('form-lessons').value,
       notes: document.getElementById('form-notes').value,
       beforeScreenshot: document.getElementById('form-before-img').value || null,
-      afterScreenshot: document.getElementById('form-after-img').value || null
+      afterScreenshot: document.getElementById('form-after-img').value || null,
+      immutable: true
     };
 
     if (id) {
@@ -311,6 +315,13 @@ export function openTradeModal(trade = null, journalType = null) {
   const form = document.getElementById('trade-form');
   
   form.reset();
+  const formControls = form.querySelectorAll('input, select, textarea, button[type="submit"]');
+  formControls.forEach(control => {
+    if (control.id === 'cancel-trade-modal-btn' || control.id === 'close-trade-modal-btn') {
+      return;
+    }
+    control.disabled = false;
+  });
   
   // Set default date
   document.getElementById('form-date').value = new Date().toISOString().split('T')[0];
@@ -339,10 +350,12 @@ export function openTradeModal(trade = null, journalType = null) {
   document.getElementById('form-after-img').value = '';
 
   if (trade) {
-    title.textContent = 'Edit Trade Record';
+    const isImmutable = Boolean(trade.immutable);
+    title.textContent = isImmutable ? 'Read-only Trade Record' : 'Edit Trade Record';
     document.getElementById('form-trade-id').value = trade.id;
     document.getElementById('form-date').value = trade.date;
     document.getElementById('form-session').value = trade.session;
+    document.getElementById('form-account-type').value = trade.accountType || 'Challenge';
     document.getElementById('form-pair').value = trade.pair;
     document.getElementById('form-direction').value = trade.type;
     document.getElementById('form-entry').value = trade.entryPrice;
@@ -353,10 +366,28 @@ export function openTradeModal(trade = null, journalType = null) {
     document.getElementById('form-result').value = trade.result;
     document.getElementById('form-strategy').value = trade.strategy;
     document.getElementById('form-setup').value = trade.setup;
+    document.getElementById('form-label-a').value = trade.labelA || '';
+    document.getElementById('form-label-b').value = trade.labelB || '';
     document.getElementById('form-emotion').value = trade.emotion;
     document.getElementById('form-mistakes').value = trade.mistakes;
     document.getElementById('form-lessons').value = trade.lessonLearned;
     document.getElementById('form-notes').value = trade.notes;
+
+    const formControls = form.querySelectorAll('input, select, textarea, button[type="submit"]');
+    formControls.forEach(control => {
+      if (control.id === 'cancel-trade-modal-btn' || control.id === 'close-trade-modal-btn') {
+        return;
+      }
+      if (isImmutable) {
+        control.disabled = true;
+      } else {
+        control.disabled = false;
+      }
+    });
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton) {
+      submitButton.textContent = isImmutable ? 'Locked' : 'Save Trade';
+    }
 
     // Check custom checklist boxes
     if (trade.checklist) {
