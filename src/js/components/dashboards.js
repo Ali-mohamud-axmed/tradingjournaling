@@ -155,7 +155,7 @@ export function renderDashboard(container) {
     AppState.setDashboardTab('live');
   });
   document.getElementById('tab-backtest-btn').addEventListener('click', () => {
-    AppState.setDashboardTab('backtest');
+    AppState.setView('backtesting');
   });
   document.getElementById('view-all-journal-btn').addEventListener('click', () => {
     AppState.setView(activeTab === 'live' ? 'journal' : 'backtesting');

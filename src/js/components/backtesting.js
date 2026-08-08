@@ -438,10 +438,6 @@ export function openBacktestModal(record = null) {
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" for="back-strategy">Strategy Name</label>
-              <input type="text" id="back-strategy" class="form-control" placeholder="e.g. SMC Order Block" required value="${record?.strategy || ''}">
-            </div>
-            <div class="form-group">
               <label class="form-label" for="back-timeframe">Timeframe</label>
               <select id="back-timeframe" class="form-control">
                 <option value="M1" ${record?.timeframe === 'M1' ? 'selected' : ''}>M1</option>
@@ -485,11 +481,7 @@ export function openBacktestModal(record = null) {
           <h4 class="modal-section-title">Lessons & Notes</h4>
           <div class="form-group">
             <label class="form-label" for="back-lessons">Lesson Learned</label>
-            <textarea id="back-lessons" rows="3" class="form-control" placeholder="What did this trade teach you?" required>${record?.lesson_learned || ''}</textarea>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="back-notes">Trade Notes (Optional)</label>
-            <textarea id="back-notes" rows="2" class="form-control" placeholder="Any additional observations...">${record?.notes || ''}</textarea>
+            <textarea id="back-lessons" rows="3" class="form-control" placeholder="What did this trade teach you?">${record?.lesson_learned || ''}</textarea>
           </div>
 
           <!-- Section 5: Drag and Drop Screenshots -->
@@ -585,7 +577,6 @@ export function openBacktestModal(record = null) {
       accountType: document.getElementById('back-account-type').value,
       pair: document.getElementById('back-pair').value.trim().toUpperCase(),
       direction: directionSelect.value,
-      strategy: document.getElementById('back-strategy').value.trim(),
       timeframe: document.getElementById('back-timeframe').value,
       entry_price: null,
       stop_loss: null,
@@ -594,8 +585,7 @@ export function openBacktestModal(record = null) {
       target_rr: targetRRValue,
       actual_rr: calculatedActualRR,
       result: resultValue,
-      lesson_learned: document.getElementById('back-lessons').value.trim(),
-      notes: document.getElementById('back-notes').value.trim(),
+      lesson_learned: document.getElementById('back-lessons').value.trim() || null,
       before_image: document.getElementById('back-before-img').value || null,
       after_image: document.getElementById('back-after-img').value || null,
       immutable: true,
