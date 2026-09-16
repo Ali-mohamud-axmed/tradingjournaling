@@ -194,7 +194,7 @@ export async function renderAdmin(container) {
         await addStoreData('Strategies', s);
       }
       const defaultChecks = [
-        { name: 'Standard Confirmation', items: ['HTF Trend Aligned', 'Liquidity Swept', 'MSS on LTF', 'OB Tapped', 'Risk defined'], userEmail: email }
+        { name: 'Standard Confirmation', items: ['HTF Trend Aligned', 'Liquidity Swept', 'MSS on LTF', 'OB Tapped', 'Risk defined', 'Order Flow', 'KL', 'TS', 'SMT / 2SMT', '5M #'], userEmail: email }
       ];
       for (const c of defaultChecks) {
         await addStoreData('Checklists', c);

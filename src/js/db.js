@@ -390,6 +390,17 @@ export async function populateMockDataIfEmpty() {
   const strategies = await getStoreData('Strategies');
   const checklists = await getStoreData('Checklists');
 
+  const standardItems = ['Order Flow', 'KL', 'TS', 'SMT / 2SMT', '5M #'];
+  for (const checklist of checklists) {
+    if (checklist.name !== 'Standard Confirmation') continue;
+    const existingItems = Array.isArray(checklist.items) ? checklist.items : [];
+    const missingItems = standardItems.filter(item => !existingItems.includes(item));
+    if (missingItems.length) {
+      checklist.items = [...existingItems, ...missingItems];
+      await updateStoreData('Checklists', checklist);
+    }
+  }
+
   // Load basic configurations
   if (strategies.length === 0) {
     const presetStrategies = [
@@ -405,7 +416,7 @@ export async function populateMockDataIfEmpty() {
 
   if (checklists.length === 0) {
     const presetChecklists = [
-      { name: 'Standard Confirmation', items: ['HTF Trend Aligned', 'Liquidity Swept', 'MSS on LTF', 'OB Tapped', 'Risk defined'] },
+      { name: 'Standard Confirmation', items: ['HTF Trend Aligned', 'Liquidity Swept', 'MSS on LTF', 'OB Tapped', 'Risk defined', 'Order Flow', 'KL', 'TS', 'SMT / 2SMT', '5M #'] },
       { name: 'Conservative Confirmation', items: ['HTF Trend Aligned', 'Liquidity Swept', 'MSS on LTF', 'OB Tapped', 'Risk defined', 'Session open volatility settled', 'RR greater than 1:3'] }
     ];
     for (const list of presetChecklists) {
@@ -554,21 +565,7 @@ export async function populateMockDataIfEmpty() {
     return trades;
   }
 
-  // Populate Live Trades
-  if (liveTrades.length === 0) {
-    const mockLive = generateMockTrades('alex.forex@master.com', false);
-    for (const trade of mockLive) {
-      await addStoreData('TradingJournal', trade);
-    }
-  }
-
-  // Populate Backtesting Trades
-  if (backtestTrades.length === 0) {
-    const mockBacktesting = generateMockTrades('alex.forex@master.com', true);
-    for (const trade of mockBacktesting) {
-      await addStoreData('BacktestingJournal', trade);
-    }
-  }
+  // Trade records are user-entered. Never fabricate live or backtest history during startup.
 }
 
 export async function clearDatabase() {

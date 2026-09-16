@@ -2,82 +2,29 @@ import { AppState } from '../state.js';
 
 let reportType = 'monthly'; // 'daily', 'weekly', 'monthly', 'yearly'
 let activeReportSource = 'live'; // 'live', 'backtest'
-let selectedAccount = 'All';
+let selectedReportYear = 'all';
+let selectedReportSession = 'all';
 
-export function buildAccountPerformanceModel(trades, accountFilter = 'All') {
-  const normalizedTrades = (trades || []).filter(trade => {
-    if (accountFilter === 'All') return true;
-    return (trade.accountType || trade.account_type || 'Challenge') === accountFilter;
-  }).sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  const years = [];
-  const byYear = new Map();
-
-  normalizedTrades.forEach(trade => {
-    const tradeDate = new Date(trade.date);
-    const year = tradeDate.getFullYear();
-    const monthIndex = tradeDate.getMonth();
-    const rrValue = trade.result === 'Win' ? (trade.rr ?? trade.target_rr ?? trade.actual_rr ?? 0) : (trade.result === 'Loss' ? -1 : 0);
-
-    if (!byYear.has(year)) {
-      byYear.set(year, {
-        year,
-        totalTrades: 0,
-        wins: 0,
-        losses: 0,
-        be: 0,
-        netR: 0,
-        months: Array.from({ length: 12 }, (_, index) => ({
-          monthIndex: index,
-          monthLabel: new Date(2020, index, 1).toLocaleString('en-US', { month: 'short' }),
-          tradeCount: 0,
-          wins: 0,
-          losses: 0,
-          be: 0,
-          netR: 0,
-          winRate: 0
-        }))
-      });
-    }
-
-    const yearBucket = byYear.get(year);
-    const monthBucket = yearBucket.months[monthIndex];
-    monthBucket.tradeCount += 1;
-    yearBucket.totalTrades += 1;
-
-    if (trade.result === 'Win') {
-      monthBucket.wins += 1;
-      yearBucket.wins += 1;
-    } else if (trade.result === 'Loss') {
-      monthBucket.losses += 1;
-      yearBucket.losses += 1;
-    } else {
-      monthBucket.be += 1;
-      yearBucket.be += 1;
-    }
-
-    monthBucket.netR += rrValue;
-    yearBucket.netR += rrValue;
-  });
-
-  byYear.forEach(bucket => {
-    bucket.months.forEach(month => {
-      month.winRate = month.tradeCount > 0 ? Number(((month.wins / month.tradeCount) * 100).toFixed(1)) : 0;
-    });
-    years.push(bucket);
-  });
-
-  return { years, selectedAccount: accountFilter };
+function normalizeReportSession(session) {
+  const value = String(session || '').trim().toLowerCase();
+  if (value === 'asian') return 'Asia';
+  if (value === 'new york' || value === 'newyork') return 'New York';
+  if (value === 'london') return 'London';
+  if (value === 'asia') return 'Asia';
+  return session || 'Other';
 }
 
 export function renderReports(container) {
   const trades = activeReportSource === 'live' ? AppState.tradingTrades : AppState.backtestTrades;
 
   // Filter trades based on reportType
-  const filtered = filterTradesByPeriod(trades, reportType);
+  const reportYears = [...new Set(trades.map(trade => new Date(trade.date).getFullYear()).filter(Number.isFinite))].sort((a, b) => b - a);
+  const reportSessions = [...new Set(trades.map(trade => normalizeReportSession(trade.session)))].sort();
+  if (selectedReportYear !== 'all' && !reportYears.includes(Number(selectedReportYear))) selectedReportYear = 'all';
+  if (selectedReportSession !== 'all' && !reportSessions.includes(selectedReportSession)) selectedReportSession = 'all';
+  const filtered = filterTradesByPeriod(trades, reportType, selectedReportYear, selectedReportSession);
   const metrics = calculatePeriodMetrics(filtered);
-  const dateRangeLabel = getPeriodRangeLabel(reportType);
-  const performanceModel = buildAccountPerformanceModel(trades, selectedAccount);
+  const dateRangeLabel = getPeriodRangeLabel(reportType, selectedReportYear);
 
   container.innerHTML = `
     <div class="reports-layout">
@@ -100,15 +47,25 @@ export function renderReports(container) {
           </div>
         </div>
 
-        <!-- Account + Frequency select -->
         <div class="card" style="padding: 20px;">
-          <h4 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.05em;">Account Filter</h4>
-          <select id="report-account-select" class="form-control" style="margin-bottom: 14px;">
-            <option value="All">All Accounts</option>
-            <option value="Challenge">Challenge</option>
-            <option value="Funded">Funded</option>
-            <option value="Your Broker">Your Broker</option>
+          <h4 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.05em;">Session</h4>
+          <select id="report-session-selector" class="form-control" style="width: 100%;">
+            <option value="all" ${selectedReportSession === 'all' ? 'selected' : ''}>All Sessions</option>
+            ${['London', 'New York', 'Asia'].filter(session => reportSessions.includes(session)).map(session => `<option value="${session}" ${selectedReportSession === session ? 'selected' : ''}>${session}</option>`).join('')}
+            ${reportSessions.filter(session => !['London', 'New York', 'Asia'].includes(session)).map(session => `<option value="${session}" ${selectedReportSession === session ? 'selected' : ''}>${session}</option>`).join('')}
           </select>
+        </div>
+
+        <div class="card" style="padding: 20px;">
+          <h4 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.05em;">Report Year</h4>
+          <select id="report-year-selector" class="form-control" style="width: 100%;">
+            <option value="all" ${selectedReportYear === 'all' ? 'selected' : ''}>All Years</option>
+            ${reportYears.map(year => `<option value="${year}" ${Number(selectedReportYear) === year ? 'selected' : ''}>${year}</option>`).join('')}
+          </select>
+        </div>
+
+        <!-- Frequency select -->
+        <div class="card" style="padding: 20px;">
           <h4 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.05em;">Report Range</h4>
           <div style="display: flex; flex-direction: column; gap: 8px;">
             <button class="btn ${reportType === 'daily' ? 'btn-primary' : 'btn-secondary'}" id="btn-rep-daily" style="justify-content: flex-start;">Daily Report</button>
@@ -170,36 +127,6 @@ export function renderReports(container) {
             <div style="background: var(--bg-primary); padding: 12px; border-radius: var(--border-radius-md); border: 1px solid var(--border-color);">
               <span style="font-size: 10px; font-weight:700; color: var(--text-muted); text-transform: uppercase;">Profit Factor</span>
               <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">${metrics.profitFactor}</div>
-            </div>
-          </div>
-
-          <!-- 5-Year Account Performance Overview -->
-          <div class="card" style="padding: 16px; margin-bottom: 24px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
-              <div>
-                <h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;">5-Year Performance Engine</h4>
-                <div style="font-size: 16px; font-weight: 700; color: var(--text-primary);">${selectedAccount === 'All' ? 'All Accounts' : selectedAccount}</div>
-              </div>
-              <div style="font-size: 12px; color: var(--text-muted);">Yearly → Monthly drill-down</div>
-            </div>
-            <div style="display: grid; gap: 12px;">
-              ${performanceModel.years.map(year => `
-                <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 12px; background: var(--bg-primary);">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-                    <div style="font-weight: 700; color: var(--text-primary);">${year.year}</div>
-                    <div style="font-size: 12px; color: var(--text-muted);">${year.totalTrades} trades · ${year.netR >= 0 ? '+' : ''}${year.netR.toFixed(2)}R · ${year.wins}/${year.totalTrades} wins</div>
-                  </div>
-                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px;">
-                    ${year.months.map(month => `
-                      <div style="padding: 8px; border-radius: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color);">
-                        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">${month.monthLabel}</div>
-                        <div style="margin-top: 6px; font-size: 13px; color: var(--text-primary); font-weight: 700;">${month.tradeCount} trades</div>
-                        <div style="font-size: 11px; color: ${month.netR >= 0 ? 'var(--color-win)' : 'var(--color-loss)'}; margin-top: 2px;">${month.netR >= 0 ? '+' : ''}${month.netR.toFixed(2)}R</div>
-                      </div>
-                    `).join('')}
-                  </div>
-                </div>
-              `).join('')}
             </div>
           </div>
 
@@ -285,12 +212,6 @@ export function renderReports(container) {
     renderReports(container);
   });
 
-  document.getElementById('report-account-select').addEventListener('change', (event) => {
-    selectedAccount = event.target.value;
-    AppState.setSelectedAccount(selectedAccount);
-    renderReports(container);
-  });
-
   // Range triggers
   document.getElementById('btn-rep-daily').addEventListener('click', () => {
     reportType = 'daily';
@@ -309,6 +230,15 @@ export function renderReports(container) {
     renderReports(container);
   });
 
+  document.getElementById('report-year-selector').addEventListener('change', (event) => {
+    selectedReportYear = event.target.value;
+    renderReports(container);
+  });
+  document.getElementById('report-session-selector').addEventListener('change', (event) => {
+    selectedReportSession = event.target.value;
+    renderReports(container);
+  });
+
   // Export triggers
   document.getElementById('export-pdf-btn').addEventListener('click', () => {
     window.print();
@@ -324,14 +254,19 @@ export function renderReports(container) {
 }
 
 // Logic to filter trades based on period selected
-function filterTradesByPeriod(trades, type) {
+function filterTradesByPeriod(trades, type, year = 'all', session = 'all') {
   const sorted = [...trades].sort((a, b) => new Date(b.date) - new Date(a.date));
   if (sorted.length === 0) return [];
+
+  if (year !== 'all') {
+    return sorted.filter(trade => new Date(trade.date).getFullYear() === Number(year) && (session === 'all' || normalizeReportSession(trade.session) === session));
+  }
 
   const newestDate = new Date(sorted[0].date);
   const msInDay = 24 * 60 * 60 * 1000;
 
   return sorted.filter(t => {
+    if (session !== 'all' && normalizeReportSession(t.session) !== session) return false;
     const tradeDate = new Date(t.date);
     const diffDays = Math.ceil(Math.abs(newestDate - tradeDate) / msInDay);
 
@@ -381,7 +316,33 @@ function calculatePeriodMetrics(filteredTrades) {
   };
 }
 
-function getPeriodRangeLabel(type) {
+export function buildAccountPerformanceModel(trades, account) {
+  const selected = trades.filter(trade => (trade.accountType || trade.account_type || trade.account) === account);
+  const years = new Map();
+  selected.forEach(trade => {
+    const date = new Date(trade.date);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    if (!years.has(year)) years.set(year, { year, months: [], totalTrades: 0, netR: 0 });
+    const yearModel = years.get(year);
+    let monthModel = yearModel.months.find(entry => entry.month === month);
+    if (!monthModel) {
+      monthModel = { month, monthLabel: date.toLocaleString('en-US', { month: 'short' }), tradeCount: 0, netR: 0 };
+      yearModel.months.push(monthModel);
+    }
+    const resultR = trade.result === 'Win' ? Number(trade.rr ?? trade.target_rr ?? trade.actual_rr ?? 0) : trade.result === 'Loss' ? -1 : 0;
+    monthModel.tradeCount += 1;
+    monthModel.netR += resultR;
+    yearModel.totalTrades += 1;
+    yearModel.netR += resultR;
+  });
+  return {
+    years: [...years.values()].sort((a, b) => a.year - b.year).map(year => ({ ...year, months: year.months.sort((a, b) => a.month - b.month) }))
+  };
+}
+
+function getPeriodRangeLabel(type, year = 'all') {
+  if (year !== 'all') return `Year ${year}`;
   const now = new Date();
   if (type === 'daily') {
     return now.toISOString().split('T')[0];

@@ -186,7 +186,7 @@ export function renderSettings(container) {
 
   const activeChecklist = AppState.checklists[0] || {
     name: 'Standard Confirmation',
-    items: ['HTF Trend Aligned', 'Liquidity Swept', 'OB Tapped', 'Risk defined'],
+    items: ['HTF Trend Aligned', 'Liquidity Swept', 'MSS on LTF', 'OB Tapped', 'Risk defined', 'Order Flow', 'KL', 'TS', 'SMT / 2SMT', '5M #'],
     userEmail: user.email
   };
 

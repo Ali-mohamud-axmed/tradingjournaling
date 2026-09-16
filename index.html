@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TradeMaster - Premium Forex Journal & Analytics</title>
+  <title>maaroTrading - Premium Forex Journal & Analytics</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" href="/favicon.svg">
   
   <!-- CSS Stylesheets -->
   <link rel="stylesheet" href="/src/css/variables.css">
@@ -22,8 +24,8 @@
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
       <div class="sidebar-logo">
-        <div class="logo-icon">TM</div>
-        <span class="logo-text">TradeMaster</span>
+        <div class="logo-icon">MT</div>
+        <span class="logo-text">maaroTrading</span>
       </div>
 
       <nav class="sidebar-nav">
@@ -54,6 +56,10 @@
         <a class="nav-item" data-view="reports">
           <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           <span class="sidebar-reports-text">Reports</span>
+        </a>
+        <a class="nav-item" data-view="portfolio">
+          <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2" ry="2"/><path d="M7 6V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M3 11h18M15 14h3"/></svg>
+          <span class="sidebar-portfolio-text">Portfolio Accounts</span>
         </a>
         <a class="nav-item" data-view="settings">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -123,7 +129,7 @@
 
   <!-- Modal dialogue for Add/Edit Trade -->
   <div class="modal-overlay" id="trade-modal">
-    <div class="modal-container">
+    <div class="modal-container trade-modal-container">
       <div class="modal-header">
         <h3 id="modal-title">Log New Trade</h3>
         <button class="modal-close" id="close-trade-modal-btn">
@@ -145,16 +151,15 @@
             <div class="form-group">
               <label class="form-label" for="form-session">Session</label>
               <select id="form-session" class="form-control">
-                <option value="Asian">Asian</option>
+                <option value="Asia">Asia</option>
                 <option value="London" selected>London</option>
                 <option value="New York">New York</option>
-                <option value="NY Close">NY Close</option>
               </select>
             </div>
             <div class="form-group">
               <label class="form-label" for="form-account-type">Account Type</label>
               <select id="form-account-type" class="form-control">
-                <option value="Challenge" selected>Challenge</option>
+                <option value="Challenge">Challenge</option>
                 <option value="Funded">Funded</option>
                 <option value="Your Broker">Your Broker</option>
               </select>
@@ -164,18 +169,7 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="form-pair">Pair</label>
-              <select id="form-pair" class="form-control" required>
-                <option value="EURUSD">EURUSD</option>
-                <option value="GBPUSD">GBPUSD</option>
-                <option value="XAUUSD">XAUUSD</option>
-                <option value="BTCUSD">BTCUSD</option>
-                <option value="USDJPY">USDJPY</option>
-                <option value="AUDUSD">AUDUSD</option>
-                <option value="USDCAD">USDCAD</option>
-                <option value="GBPJPY">GBPJPY</option>
-                <option value="ETHUSD">ETHUSD</option>
-                <option value="SOLUSD">SOLUSD</option>
-              </select>
+              <input type="text" id="form-pair" class="form-control" placeholder="EURUSD, GBPUSD..." required>
             </div>
             <div class="form-group">
               <label class="form-label" for="form-direction">Buy/Sell</label>
@@ -211,16 +205,31 @@
               <input type="number" id="form-rr" step="0.1" class="form-control" placeholder="Auto calculated" readonly>
             </div>
             <div class="form-group">
-              <label class="form-label" for="form-pl-money">P/L Money ($)</label>
-              <input type="text" id="form-pl-money" class="form-control" placeholder="e.g. +300 or -100" required>
-            </div>
-            <div class="form-group">
               <label class="form-label" for="form-result">Result</label>
               <select id="form-result" class="form-control">
                 <option value="Win">Win</option>
                 <option value="Loss">Loss</option>
                 <option value="Break Even">Break Even</option>
               </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-pl">P/L</label>
+              <input type="number" id="form-pl" step="0.01" class="form-control" placeholder="e.g. 150.00">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Checklist Confirmation</label>
+            <div class="checklist-section-toolbar">
+              <select id="checklist-section-select" class="form-control" aria-label="Select checklist section"></select>
+              <button type="button" class="btn btn-secondary checklist-section-action" id="add-checklist-section-btn">+ Add Section</button>
+            </div>
+            <div id="checklist-selectors-area" class="checklist-items-area">
+              <!-- Populated by script -->
+            </div>
+            <div class="checklist-add-row">
+              <input type="text" id="new-checklist-item" class="form-control" placeholder="Enter a new item...">
+              <button type="button" class="btn btn-secondary checklist-add-btn" id="add-checklist-item-btn" aria-label="Add checklist item">+ <span>Add Checklist</span></button>
             </div>
           </div>
 
@@ -232,24 +241,6 @@
             <div class="form-group">
               <label class="form-label" for="form-setup">Setup Type</label>
               <input type="text" id="form-setup" class="form-control" placeholder="e.g. 15m order block">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label" for="form-label-a">A</label>
-              <input type="text" id="form-label-a" class="form-control" placeholder="e.g. 1h TSQ active">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="form-label-b">B</label>
-              <input type="text" id="form-label-b" class="form-control" placeholder="e.g. 4h IRL, 3am purge">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Checklist Confirmation</label>
-            <div id="checklist-selectors-area" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-              <!-- Populated by script -->
             </div>
           </div>
 
@@ -277,38 +268,32 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="form-lessons">Lesson Learned</label>
+            <label class="form-label" for="form-lessons">Lesson Learned <span class="field-icon" aria-hidden="true">✎</span></label>
             <textarea id="form-lessons" rows="2" class="form-control" placeholder="What did this trade teach you?"></textarea>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="form-notes">Trade Notes</label>
+            <label class="form-label" for="form-notes">Trade Notes <span class="field-icon" aria-hidden="true">✎</span></label>
             <textarea id="form-notes" rows="3" class="form-control" placeholder="Entry rules met? Volatility environment?"></textarea>
           </div>
 
           <!-- Screenshot uploaders -->
           <div class="image-upload-wrapper">
             <div class="form-group">
-              <label class="form-label">Before Screenshot / TV Link</label>
+              <label class="form-label">Before Screenshot</label>
               <div class="image-dropzone" id="before-dropzone">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                 <span>Upload Chart Setup</span>
-              </div>
-              <div style="margin-top: 8px;">
-                <input type="text" id="form-before-tv-url" class="form-control" placeholder="Or paste TradingView Link...">
               </div>
               <div class="image-preview" id="before-preview" style="display: none;"></div>
               <input type="hidden" id="form-before-img">
             </div>
 
             <div class="form-group">
-              <label class="form-label">After Screenshot / TV Link</label>
+              <label class="form-label">After Screenshot</label>
               <div class="image-dropzone" id="after-dropzone">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                 <span>Upload Chart Outcome</span>
-              </div>
-              <div style="margin-top: 8px;">
-                <input type="text" id="form-after-tv-url" class="form-control" placeholder="Or paste TradingView Link...">
               </div>
               <div class="image-preview" id="after-preview" style="display: none;"></div>
               <input type="hidden" id="form-after-img">

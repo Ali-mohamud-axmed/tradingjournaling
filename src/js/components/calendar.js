@@ -3,6 +3,19 @@ import { openTradeModal } from '../main.js';
 
 let currentCalendarDate = new Date();
 let activeJournalSource = 'all'; // 'all', 'live', 'backtest'
+let activeCalendarAccount = 'All';
+
+function getTradeAccount(trade) {
+  return trade.accountType || trade.account_type || trade.account || 'Unknown';
+}
+
+function getTradePL(trade) {
+  const value = Number(trade.plMoney ?? trade.pl_money);
+  if (!Number.isFinite(value)) return null;
+  if (trade.result === 'Loss') return -Math.abs(value);
+  if (trade.result === 'Win') return Math.abs(value);
+  return value;
+}
 
 export function renderCalendar(container) {
   // 1. Get trades based on selected journal source
@@ -13,6 +26,9 @@ export function renderCalendar(container) {
   if (activeJournalSource === 'all' || activeJournalSource === 'backtest') {
     trades = trades.concat(AppState.backtestTrades.map(t => ({ ...t, source: 'backtest' })));
   }
+  const accounts = [...new Set(trades.map(getTradeAccount))].filter(Boolean).sort();
+  if (activeCalendarAccount !== 'All' && !accounts.includes(activeCalendarAccount)) activeCalendarAccount = 'All';
+  trades = trades.filter(trade => activeCalendarAccount === 'All' || getTradeAccount(trade) === activeCalendarAccount);
 
   const year = currentCalendarDate.getFullYear();
   const month = currentCalendarDate.getMonth();
@@ -46,6 +62,11 @@ export function renderCalendar(container) {
     const wins = dayTrades.filter(t => t.result === 'Win').length;
     const losses = dayTrades.filter(t => t.result === 'Loss').length;
     const bes = dayTrades.filter(t => t.result === 'Break Even').length;
+    const dayPL = dayTrades.reduce((total, trade) => {
+      const value = getTradePL(trade);
+      return value === null ? total : total + value;
+    }, 0);
+    const hasPL = dayTrades.some(trade => getTradePL(trade) !== null);
 
     const isToday = todayStr === dateKey;
     const hasTrades = dayTrades.length > 0;
@@ -54,6 +75,10 @@ export function renderCalendar(container) {
     if (wins > 0) dayBadges += `<div class="calendar-day-badge win"><span>Wins</span><span>${wins}</span></div>`;
     if (losses > 0) dayBadges += `<div class="calendar-day-badge loss"><span>Loss</span><span>${losses}</span></div>`;
     if (bes > 0) dayBadges += `<div class="calendar-day-badge be"><span>BE</span><span>${bes}</span></div>`;
+    if (hasPL) {
+      const formattedPL = `${dayPL >= 0 ? '+' : '-'}$${Math.abs(dayPL).toFixed(2)}`;
+      dayBadges += `<div class="calendar-day-badge pl ${dayPL >= 0 ? 'positive' : 'negative'}"><span>P/L</span><span>${formattedPL}</span></div>`;
+    }
 
     calendarDaysHTML += `
       <div class="calendar-day ${isToday ? 'today' : ''}" data-date="${dateKey}" style="${hasTrades ? 'border-color: rgba(59, 130, 246, 0.3);' : ''}">
@@ -87,6 +112,11 @@ export function renderCalendar(container) {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
           </div>
+
+          <select id="cal-account-selector" class="form-control" style="width: 150px; height: 36px; padding: 6px 10px; font-size: 12px;">
+            <option value="All" ${activeCalendarAccount === 'All' ? 'selected' : ''}>All Accounts</option>
+            ${accounts.map(account => `<option value="${account}" ${activeCalendarAccount === account ? 'selected' : ''}>${account}</option>`).join('')}
+          </select>
 
           <div>
             <button class="btn btn-primary" id="cal-today-btn" style="padding: 8px 16px; font-size: 13px;">Today</button>
@@ -141,6 +171,10 @@ export function renderCalendar(container) {
     activeJournalSource = 'backtest';
     renderCalendar(container);
   });
+  document.getElementById('cal-account-selector').addEventListener('change', event => {
+    activeCalendarAccount = event.target.value;
+    renderCalendar(container);
+  });
 
   // Bind day clicks
   document.querySelectorAll('.calendar-day:not(.empty)').forEach(dayEl => {
@@ -188,6 +222,7 @@ function openDayDetailsOverlay(dateStr, dayTrades) {
               </div>
               <div style="text-align: right; display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
                 <span class="badge ${rBadge}">${t.result}</span>
+                ${getTradePL(t) !== null ? `<span style="font-weight: 700; font-size: 13px; color: ${getTradePL(t) >= 0 ? 'var(--color-win)' : 'var(--color-loss)'}">${getTradePL(t) >= 0 ? '+' : '-'}$${Math.abs(getTradePL(t)).toFixed(2)}</span>` : ''}
                 <span style="font-weight: 700; font-size: 13px; color: var(--text-primary);">${t.result === 'Win' ? `+${t.rr}` : (t.result === 'Loss' ? '-1.00' : '0.00')}R</span>
               </div>
             </div>

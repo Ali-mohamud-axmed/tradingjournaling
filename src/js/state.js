@@ -1,5 +1,5 @@
 // State manager for TradeMaster
-import { getStoreData, populateMockDataIfEmpty, initializeDatabaseMode } from './db.js';
+import { getStoreData, populateMockDataIfEmpty } from './db.js';
 
 export const AppState = {
   user: null, // Holds user profile when authenticated
@@ -21,23 +21,6 @@ export const AppState = {
     // 2. Initialise theme
     const savedTheme = localStorage.getItem('trademaster-theme') || 'dark';
     document.body.className = savedTheme === 'light' ? 'light-theme' : '';
-
-    // 3. Determine whether Supabase is available or use local DB fallback
-    try {
-      const mode = await initializeDatabaseMode();
-      if (mode.mode === 'local') {
-        console.warn('Database mode:', mode.mode, 'using local IndexedDB fallback.');
-      }
-    } catch (e) {
-      console.error('Failed to initialize database mode:', e);
-    }
-
-    // 4. Pre-populate default DB items
-    try {
-      await populateMockDataIfEmpty();
-    } catch (e) {
-      console.error('Failed to populate databases:', e);
-    }
 
     // 4. Load auth session
     const savedUser = localStorage.getItem('trademaster-user') || sessionStorage.getItem('trademaster-user');
@@ -68,17 +51,24 @@ export const AppState = {
     }
 
     await this.refreshCache();
+
+    // Do not block refresh/F5 on first-run maintenance or legacy checklist migration.
+    populateMockDataIfEmpty()
+      .then(() => this.refreshCache())
+      .catch(error => console.error('Background database maintenance failed:', error));
   },
 
   // Refresh cached lists from DB
   async refreshCache() {
     try {
-      const allLive = await getStoreData('TradingJournal');
-      const allBack = await getStoreData('BacktestingJournal');
-      const allStrats = await getStoreData('Strategies');
-      const allChecks = await getStoreData('Checklists');
+      const [allLive, allBack, allStrats, allChecks] = await Promise.all([
+        getStoreData('TradingJournal'),
+        getStoreData('BacktestingJournal'),
+        getStoreData('Strategies'),
+        getStoreData('Checklists')
+      ]);
 
-      const normalizeEntries = (entries = []) => entries.map(entry => ({ ...entry, immutable: entry.immutable ?? true }));
+      const normalizeEntries = (entries = []) => entries;
 
       if (this.user) {
         if (this.user.role === 'admin') {
@@ -107,6 +97,9 @@ export const AppState = {
   // Navigation controller
   setView(viewName) {
     this.activeView = viewName;
+    if (typeof window !== 'undefined' && window.history && window.location.pathname !== `/${viewName}`) {
+      window.history.pushState({ view: viewName }, '', `/${viewName}`);
+    }
     this.notifyListeners();
   },
 
@@ -186,7 +179,7 @@ export const AppState = {
         await addStoreData('Strategies', s);
       }
       const defaultChecks = [
-        { name: 'Standard Confirmation', items: ['HTF Trend Aligned', 'Liquidity Swept', 'MSS on LTF', 'OB Tapped', 'Risk defined'], userEmail: email }
+        { name: 'Standard Confirmation', items: ['HTF Trend Aligned', 'Liquidity Swept', 'MSS on LTF', 'OB Tapped', 'Risk defined', 'Order Flow', 'KL', 'TS', 'SMT / 2SMT', '5M #'], userEmail: email }
       ];
       for (const c of defaultChecks) {
         await addStoreData('Checklists', c);
@@ -234,3 +227,66 @@ export const AppState = {
     this.listeners.forEach(callback => callback(this));
   }
 };
+
+export async function applyAccountTradeChange(previousTrade, nextTrade) {
+  if (!AppState.user) return;
+
+  const accountField = account => ({
+    Challenge: 'challengeSize',
+    Funded: 'fundedSize',
+    'Your Broker': 'brokerSize'
+  }[account]);
+  const customAccounts = Array.isArray(AppState.user.portfolioAccounts) ? AppState.user.portfolioAccounts : [];
+  const accountOf = trade => trade?.accountType || trade?.account_type || trade?.account || 'Challenge';
+  const plOf = trade => {
+    const value = Number(trade?.plMoney ?? trade?.pl_money ?? 0);
+    if (!Number.isFinite(value)) return 0;
+    const result = String(trade?.result || '').toLowerCase();
+    if (result === 'loss' || result === 'lost') return -Math.abs(value);
+    if (result === 'win' || result === 'won') return Math.abs(value);
+    return value;
+  };
+  const changes = new Map();
+  const customChanges = new Map();
+  const addChange = (trade, amount) => {
+    const account = accountOf(trade);
+    const field = accountField(account);
+    if (field) changes.set(field, (changes.get(field) || 0) + amount);
+    else {
+      const custom = customAccounts.find(item => item.name === account);
+      if (custom) customChanges.set(custom.id, (customChanges.get(custom.id) || 0) + amount);
+    }
+  };
+
+  if (previousTrade) addChange(previousTrade, -plOf(previousTrade));
+  if (nextTrade) addChange(nextTrade, plOf(nextTrade));
+  if (!changes.size && !customChanges.size) return;
+
+  const profileChanges = {};
+  const defaultCapital = { challengeSize: 100000, fundedSize: 50000, brokerSize: 10000 };
+  changes.forEach((amount, field) => {
+    const current = Number(AppState.user[field] ?? defaultCapital[field]);
+    profileChanges[field] = Number((current + amount).toFixed(2));
+  });
+  if (customChanges.size) {
+    profileChanges.portfolioAccounts = customAccounts.map(account => customChanges.has(account.id)
+      ? { ...account, balance: Number((Number(account.balance || 0) + customChanges.get(account.id)).toFixed(2)) }
+      : account);
+  }
+  await AppState.updateProfile(profileChanges);
+}
+
+export function getPortfolioAccounts() {
+  const user = AppState.user || {};
+  return [
+    { name: 'Challenge', field: 'challengeSize', accent: 'var(--accent-color)', note: 'Evaluation account' },
+    { name: 'Funded', field: 'fundedSize', accent: 'var(--color-win)', note: 'Funded trading account' },
+    { name: 'Your Broker', field: 'brokerSize', accent: 'var(--accent-secondary)', note: 'Personal broker account' },
+    ...(Array.isArray(user.portfolioAccounts) ? user.portfolioAccounts.map((account, index) => ({
+      ...account,
+      field: null,
+      accent: account.accent || ['#a78bfa', '#f59e0b', '#ec4899'][index % 3],
+      note: account.note || 'Custom trading account'
+    })) : [])
+  ];
+}

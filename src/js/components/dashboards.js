@@ -1,6 +1,7 @@
 import { AppState } from '../state.js';
 import { openTradeModal } from '../main.js';
 import { openBacktestModal } from './backtesting.js';
+import { buildBacktestAnalytics, getClosedBacktestTrades } from '../backtesting/analytics.js';
 
 // Global variable to keep track of chart instances to prevent canvas reuse errors
 let equityChartInstance = null;
@@ -8,10 +9,11 @@ let sessionChartInstance = null;
 
 export function renderDashboard(container) {
   const activeTab = AppState.activeDashboardTab; // 'live' or 'backtest'
-  const trades = activeTab === 'live' ? AppState.tradingTrades : AppState.backtestTrades;
+  const sourceTrades = activeTab === 'live' ? AppState.tradingTrades : AppState.backtestTrades;
+  const trades = activeTab === 'live' ? sourceTrades : getClosedBacktestTrades(sourceTrades);
 
   // 1. Calculate metrics dynamically
-  const metrics = calculateMetrics(trades);
+  const metrics = activeTab === 'live' ? calculateMetrics(trades) : buildBacktestDashboardMetrics(buildBacktestAnalytics(trades));
 
   // 2. Render Page Frame
   container.innerHTML = `
@@ -30,7 +32,7 @@ export function renderDashboard(container) {
     <!-- Metrics Grid -->
     <div class="metrics-grid">
       <div class="metric-card">
-        <div class="metric-card-label">${activeTab === 'live' ? 'Total Trades' : 'Total Backtests'}</div>
+        <div class="metric-card-label">${activeTab === 'live' ? 'Total Trades' : 'Total Backtest Trades'}</div>
         <div class="metric-card-value">${metrics.total}</div>
         <div class="metric-card-sub">Active Journal</div>
       </div>
@@ -155,7 +157,8 @@ export function renderDashboard(container) {
     AppState.setDashboardTab('live');
   });
   document.getElementById('tab-backtest-btn').addEventListener('click', () => {
-    AppState.setView('backtesting');
+    AppState.setDashboardTab('backtest');
+    AppState.setView('dashboard');
   });
   document.getElementById('view-all-journal-btn').addEventListener('click', () => {
     AppState.setView(activeTab === 'live' ? 'journal' : 'backtesting');
@@ -197,7 +200,7 @@ export function renderDashboard(container) {
     document.querySelectorAll('.recent-trade-row').forEach(row => {
       row.addEventListener('click', () => {
         const id = row.dataset.id;
-        const trade = trades.find(t => t.id === Number(id));
+        const trade = sourceTrades.find(t => t.id === Number(id));
         if (trade) {
           if (activeTab === 'backtest') {
             openBacktestModal(trade);
@@ -211,6 +214,25 @@ export function renderDashboard(container) {
 
   // 4. Render Chart.js charts
   renderCharts(trades, metrics.equityData);
+}
+
+function buildBacktestDashboardMetrics(analytics) {
+  return {
+    total: analytics.totalTrades,
+    winRate: analytics.winRate.toFixed(1),
+    lossRate: analytics.lossRate.toFixed(1),
+    beRate: analytics.breakEvenRate.toFixed(1),
+    avgRR: analytics.averageRR.toFixed(2),
+    profitFactor: Number.isFinite(analytics.profitFactor) ? analytics.profitFactor.toFixed(2) : 'N/A',
+    netR: analytics.realizedR.toFixed(2),
+    maxDrawdown: analytics.maxDrawdown.toFixed(2),
+    winStreak: analytics.winStreak,
+    lossStreak: analytics.lossStreak,
+    bestPair: analytics.bestPair,
+    bestSession: analytics.bestSession,
+    avgRisk: analytics.averageRisk.toFixed(2),
+    equityData: analytics.equity.map(point => point.cumulativeR)
+  };
 }
 
 // Analytics calculations

@@ -1,6 +1,7 @@
-import { AppState } from '../state.js';
+import { AppState, applyAccountTradeChange } from '../state.js';
 import { deleteStoreData } from '../db.js';
 import { openTradeModal } from '../main.js';
+import { showTradeDeletedNotification } from './notifications.js';
 
 let activeFilters = {
   search: '',
@@ -388,29 +389,21 @@ function openDetailsDrawer(trade, storeName, journalType) {
   drawerOverlay.addEventListener('click', closeDrawer);
 
   // Delete trade handler
-  const deleteButton = document.getElementById('delete-trade-btn');
-  const editButton = document.getElementById('edit-trade-btn');
-
-  if (trade.immutable) {
-    deleteButton.remove();
-    editButton.textContent = 'Locked Entry';
-    editButton.disabled = true;
-    editButton.classList.add('btn-secondary');
-    editButton.classList.remove('btn-primary');
-  } else {
-    deleteButton.addEventListener('click', async () => {
-      if (confirm('Are you sure you want to delete this trade record permanently?')) {
-        await deleteStoreData(storeName, trade.id);
-        closeDrawer();
-        AppState.refreshCache();
-      }
-    });
-
-    editButton.addEventListener('click', () => {
+  document.getElementById('delete-trade-btn').addEventListener('click', async () => {
+    if (confirm('Are you sure you want to delete this trade record permanently?')) {
+      await deleteStoreData(storeName, trade.id);
+      await applyAccountTradeChange(trade, null);
       closeDrawer();
-      openTradeModal(trade, journalType);
-    });
-  }
+      AppState.refreshCache();
+      showTradeDeletedNotification();
+    }
+  });
+
+  // Edit trade handler
+  document.getElementById('edit-trade-btn').addEventListener('click', () => {
+    closeDrawer();
+    openTradeModal(trade, journalType);
+  });
 
   // Click on chart opens a beautiful fullscreen comparison viewer modal
   document.querySelectorAll('.details-chart-img').forEach(img => {

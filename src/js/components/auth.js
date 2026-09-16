@@ -214,8 +214,8 @@ function renderAuthForm(card) {
     card.innerHTML = `
       <div class="auth-header">
         <div class="auth-logo">
-          <div class="logo-icon">TM</div>
-          <span class="logo-text" style="-webkit-text-fill-color: initial; color: var(--text-primary);">TradeMaster</span>
+          <div class="logo-icon">MT</div>
+          <span class="logo-text" style="-webkit-text-fill-color: initial; color: var(--text-primary);">maaroTrading</span>
         </div>
         <h3 class="auth-title">${t('welcomeBack')}</h3>
         <p class="auth-subtitle">${t('loginSubtitle')}</p>
@@ -300,8 +300,8 @@ function renderAuthForm(card) {
     card.innerHTML = `
       <div class="auth-header">
         <div class="auth-logo">
-          <div class="logo-icon">TM</div>
-          <span class="logo-text" style="-webkit-text-fill-color: initial; color: var(--text-primary);">TradeMaster</span>
+          <div class="logo-icon">MT</div>
+          <span class="logo-text" style="-webkit-text-fill-color: initial; color: var(--text-primary);">maaroTrading</span>
         </div>
         <h3 class="auth-title">${t('createAccount')}</h3>
         <p class="auth-subtitle">${t('registerSubtitle')}</p>
@@ -343,7 +343,7 @@ function renderAuthForm(card) {
         <div class="form-group" style="margin-bottom: 24px;">
           <label class="checkbox-container">
             <input type="checkbox" id="reg-terms" required>
-            <span>I accept the Terms and Conditions of TradeMaster</span>
+            <span>I accept the Terms and Conditions of maaroTrading</span>
           </label>
         </div>
 
@@ -426,8 +426,8 @@ function renderAuthForm(card) {
     card.innerHTML = `
       <div class="auth-header">
         <div class="auth-logo">
-          <div class="logo-icon">TM</div>
-          <span class="logo-text" style="-webkit-text-fill-color: initial; color: var(--text-primary);">TradeMaster</span>
+          <div class="logo-icon">MT</div>
+          <span class="logo-text" style="-webkit-text-fill-color: initial; color: var(--text-primary);">maaroTrading</span>
         </div>
         <h3 class="auth-title">Verify Your Email</h3>
         <p class="auth-subtitle">We have sent a verification code to <strong>${pendingRegisterData?.email || 'your email'}</strong>.</p>
@@ -518,8 +518,8 @@ function renderAuthForm(card) {
     card.innerHTML = `
       <div class="auth-header">
         <div class="auth-logo">
-          <div class="logo-icon">TM</div>
-          <span class="logo-text" style="-webkit-text-fill-color: initial; color: var(--text-primary);">TradeMaster</span>
+          <div class="logo-icon">MT</div>
+          <span class="logo-text" style="-webkit-text-fill-color: initial; color: var(--text-primary);">maaroTrading</span>
         </div>
         <h3 class="auth-title">${t('resetPassword')}</h3>
         <p class="auth-subtitle">${t('resetSubtitle')}</p>
@@ -569,8 +569,8 @@ function renderAuthForm(card) {
     card.innerHTML = `
       <div class="auth-header">
         <div class="auth-logo">
-          <div class="logo-icon">TM</div>
-          <span class="logo-text" style="-webkit-text-fill-color: initial; color: var(--text-primary);">TradeMaster</span>
+          <div class="logo-icon">MT</div>
+            <span class="logo-text" style="-webkit-text-fill-color: initial; color: var(--text-primary);">maaroTrading</span>
         </div>
         <h3 class="auth-title">Create New Password</h3>
         <p class="auth-subtitle">Enter your new credentials below to restore account access.</p>

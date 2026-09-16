@@ -1,6 +1,7 @@
-import { AppState } from '../state.js';
+import { AppState, applyAccountTradeChange, getPortfolioAccounts } from '../state.js';
 import { addStoreData, updateStoreData, deleteStoreData } from '../db.js';
 import { t } from '../translations.js';
+import { showTradeDeletedNotification, showTradeSavedNotification } from './notifications.js';
 
 let activeFilters = {
   search: '',
@@ -338,7 +339,7 @@ function filterAndRenderTable() {
 
   // Bind Actions
   tbody.querySelectorAll('.table-action-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       const action = btn.dataset.action;
       const id = Number(btn.dataset.id);
       const record = filtered.find(r => r.id === id);
@@ -354,10 +355,11 @@ function filterAndRenderTable() {
         cloned.date = new Date().toISOString().split('T')[0];
         openBacktestModal(cloned);
       } else if (action === 'delete') {
-        if (confirm('Are you sure you want to permanently delete this backtesting record?')) {
-          deleteStoreData('BacktestingJournal', record.id).then(() => {
-            AppState.refreshCache();
-          });
+        if (await requestBacktestDeleteConfirmation(record.pair)) {
+          await deleteStoreData('BacktestingJournal', record.id);
+          await applyAccountTradeChange(record, null);
+          AppState.refreshCache();
+          showTradeDeletedNotification();
         }
       }
     });
@@ -415,9 +417,7 @@ export function openBacktestModal(record = null) {
             <div class="form-group">
               <label class="form-label" for="back-account-type">Account Type</label>
               <select id="back-account-type" class="form-control">
-                <option value="Challenge" ${record?.accountType === 'Challenge' || !record ? 'selected' : ''}>Challenge</option>
-                <option value="Funded" ${record?.accountType === 'Funded' ? 'selected' : ''}>Funded</option>
-                <option value="Your Broker" ${record?.accountType === 'Your Broker' ? 'selected' : ''}>Your Broker</option>
+                ${getPortfolioAccounts().map(account => `<option value="${account.name}" ${record?.accountType === account.name || (!record && account.name === 'Challenge') ? 'selected' : ''}>${account.name}</option>`).join('')}
               </select>
             </div>
           </div>
@@ -449,6 +449,14 @@ export function openBacktestModal(record = null) {
                 <option value="D1" ${record?.timeframe === 'D1' ? 'selected' : ''}>D1</option>
               </select>
             </div>
+            <div class="form-group">
+              <label class="form-label" for="back-strategy">Strategy</label>
+              <input type="text" id="back-strategy" class="form-control" value="${record?.strategy || ''}" placeholder="Strategy name">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="back-setup">Setup</label>
+              <input type="text" id="back-setup" class="form-control" value="${record?.setup || ''}" placeholder="Setup name">
+            </div>
           </div>
 
           <!-- Section 2: Risk Management -->
@@ -461,6 +469,10 @@ export function openBacktestModal(record = null) {
             <div class="form-group">
               <label class="form-label" for="back-target-rr">Target RR</label>
               <input type="number" id="back-target-rr" step="0.01" class="form-control" placeholder="e.g. 3.0" value="${record?.target_rr || ''}" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="back-pl">P/L</label>
+              <input type="number" id="back-pl" step="0.01" class="form-control" placeholder="e.g. 150.00" value="${record?.pl_money ?? ''}">
             </div>
           </div>
 
@@ -496,6 +508,8 @@ export function openBacktestModal(record = null) {
               <div class="screenshot-preview-container" id="preview-before" style="display: ${record?.before_image ? 'block' : 'none'};">
                 ${record?.before_image ? `<img src="${record.before_image}"><button type="button" class="screenshot-remove-btn" id="rm-btn-before">&times;</button>` : ''}
               </div>
+              <label class="form-label" for="back-before-link" style="margin-top: 10px;">Paste Image Link</label>
+              <input type="url" id="back-before-link" class="form-control" placeholder="Paste image link here..." value="${record?.before_image && !String(record.before_image).startsWith('data:') ? record.before_image : ''}">
               <input type="hidden" id="back-before-img" value="${record?.before_image || ''}">
             </div>
 
@@ -508,6 +522,8 @@ export function openBacktestModal(record = null) {
               <div class="screenshot-preview-container" id="preview-after" style="display: ${record?.after_image ? 'block' : 'none'};">
                 ${record?.after_image ? `<img src="${record.after_image}"><button type="button" class="screenshot-remove-btn" id="rm-btn-after">&times;</button>` : ''}
               </div>
+              <label class="form-label" for="back-after-link" style="margin-top: 10px;">Paste Image Link</label>
+              <input type="url" id="back-after-link" class="form-control" placeholder="Paste image link here..." value="${record?.after_image && !String(record.after_image).startsWith('data:') ? record.after_image : ''}">
               <input type="hidden" id="back-after-img" value="${record?.after_image || ''}">
             </div>
           </div>
@@ -523,23 +539,13 @@ export function openBacktestModal(record = null) {
 
   modal.classList.add('active');
 
-  const isImmutable = Boolean(record?.immutable);
-
   // Input elements
   const directionSelect = document.getElementById('back-direction');
   const targetRRInput = document.getElementById('back-target-rr');
   const resultSelect = document.getElementById('back-result');
   const form = document.getElementById('backtest-form');
   const submitButton = form?.querySelector('button[type="submit"]');
-  const allControls = form?.querySelectorAll('input, select, textarea, button');
-
-  allControls?.forEach(control => {
-    if (control.id === 'cancel-backtest-modal-btn' || control.id === 'close-backtest-modal-btn') return;
-    control.disabled = isImmutable;
-  });
-  if (submitButton) {
-    submitButton.textContent = isImmutable ? 'Locked' : 'Save Backtest';
-  }
+  if (submitButton) submitButton.textContent = 'Save Backtest';
 
   // Modal closers
   const closeModal = () => modal.classList.remove('active');
@@ -548,14 +554,15 @@ export function openBacktestModal(record = null) {
   modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
   // Screenshot Dropzones
-  setupDropzoneLogic('dropzone-before', 'preview-before', 'back-before-img', 'rm-btn-before');
-  setupDropzoneLogic('dropzone-after', 'preview-after', 'back-after-img', 'rm-btn-after');
+  setupDropzoneLogic('dropzone-before', 'preview-before', 'back-before-img', 'rm-btn-before', 'back-before-link');
+  setupDropzoneLogic('dropzone-after', 'preview-after', 'back-after-img', 'rm-btn-after', 'back-after-link');
 
   // Form submission
   document.getElementById('backtest-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const id = document.getElementById('backtest-id').value;
+    const previousTrade = id ? AppState.backtestTrades.find(trade => trade.id === Number(id)) : null;
     const dateStr = document.getElementById('back-date').value;
 
     const targetRRValue = parseFloat(targetRRInput.value) || 0.0;
@@ -570,6 +577,13 @@ export function openBacktestModal(record = null) {
       calculatedActualRR = 0.0;
     }
 
+    const enteredPL = parseFloat(document.getElementById('back-pl').value) || 0;
+    const normalizedPL = resultValue === 'Loss'
+      ? -Math.abs(enteredPL)
+      : resultValue === 'Win'
+        ? Math.abs(enteredPL)
+        : enteredPL;
+
     const backtestData = {
       user_id: AppState.user.email,
       date: dateStr,
@@ -578,17 +592,16 @@ export function openBacktestModal(record = null) {
       pair: document.getElementById('back-pair').value.trim().toUpperCase(),
       direction: directionSelect.value,
       timeframe: document.getElementById('back-timeframe').value,
-      entry_price: null,
-      stop_loss: null,
-      take_profit: null,
+      strategy: document.getElementById('back-strategy').value.trim() || null,
+      setup: document.getElementById('back-setup').value.trim() || null,
       risk_percent: parseFloat(document.getElementById('back-risk').value || 1.0),
       target_rr: targetRRValue,
+      pl_money: normalizedPL,
       actual_rr: calculatedActualRR,
       result: resultValue,
       lesson_learned: document.getElementById('back-lessons').value.trim() || null,
       before_image: document.getElementById('back-before-img').value || null,
       after_image: document.getElementById('back-after-img').value || null,
-      immutable: true,
       updated_at: new Date().toISOString()
     };
 
@@ -601,15 +614,35 @@ export function openBacktestModal(record = null) {
       await addStoreData('BacktestingJournal', backtestData);
     }
 
+    await applyAccountTradeChange(previousTrade, backtestData);
+
     closeModal();
     AppState.refreshCache();
+    showTradeSavedNotification('Backtest trade saved successfully');
   });
 }
 
-function setupDropzoneLogic(dropzoneId, previewId, hiddenInputId, removeBtnId) {
+function setupDropzoneLogic(dropzoneId, previewId, hiddenInputId, removeBtnId, linkInputId) {
   const dropzone = document.getElementById(dropzoneId);
   const preview = document.getElementById(previewId);
   const hiddenInput = document.getElementById(hiddenInputId);
+  const linkInput = document.getElementById(linkInputId);
+
+  const renderPreview = (value) => {
+    if (!value) {
+      preview.innerHTML = '';
+      preview.style.display = 'none';
+      return;
+    }
+    preview.style.display = 'block';
+    preview.innerHTML = `<img src="${value}" alt="Screenshot preview"><button type="button" class="screenshot-remove-btn" id="${removeBtnId}">&times;</button>`;
+    document.getElementById(removeBtnId).addEventListener('click', (event) => {
+      event.stopPropagation();
+      hiddenInput.value = '';
+      if (linkInput) linkInput.value = '';
+      renderPreview('');
+    });
+  };
   
   // Invisible file input
   const fileInput = document.createElement('input');
@@ -623,18 +656,8 @@ function setupDropzoneLogic(dropzoneId, previewId, hiddenInputId, removeBtnId) {
     reader.onload = (e) => {
       const dataUrl = e.target.result;
       hiddenInput.value = dataUrl;
-      preview.style.display = 'block';
-      preview.innerHTML = `
-        <img src="${dataUrl}">
-        <button type="button" class="screenshot-remove-btn" id="${removeBtnId}">&times;</button>
-      `;
-      // Bind remove
-      document.getElementById(removeBtnId).addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        hiddenInput.value = '';
-        preview.innerHTML = '';
-        preview.style.display = 'none';
-      });
+      if (linkInput) linkInput.value = '';
+      renderPreview(dataUrl);
     };
     reader.readAsDataURL(file);
   };
@@ -667,14 +690,20 @@ function setupDropzoneLogic(dropzoneId, previewId, hiddenInputId, removeBtnId) {
     }
   });
 
+  linkInput?.addEventListener('input', () => {
+    const value = linkInput.value.trim();
+    hiddenInput.value = value;
+    renderPreview(value);
+  });
+
   // Bind existing remove button if it is rendered
   const existingRemoveBtn = document.getElementById(removeBtnId);
   if (existingRemoveBtn) {
     existingRemoveBtn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       hiddenInput.value = '';
-      preview.innerHTML = '';
-      preview.style.display = 'none';
+      if (linkInput) linkInput.value = '';
+      renderPreview('');
     });
   }
 }
@@ -727,6 +756,7 @@ function openBacktestDetailsDrawer(trade) {
           <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: var(--text-secondary);">Stop Loss</span><span style="font-weight: 600; color: var(--text-primary);">${trade.stop_loss || 'N/A'}</span></div>
           <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: var(--text-secondary);">Take Profit</span><span style="font-weight: 600; color: var(--text-primary);">${trade.take_profit || 'N/A'}</span></div>
           <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: var(--text-secondary);">Risk Percentage</span><span style="font-weight: 600; color: var(--text-primary);">${trade.risk_percent}%</span></div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: var(--text-secondary);">P/L</span><span style="font-weight: 600; color: ${Number(trade.pl_money || 0) >= 0 ? 'var(--color-win)' : 'var(--color-loss)'}">${trade.pl_money ?? 'N/A'}</span></div>
           <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: var(--text-secondary);">Target R:R</span><span style="font-weight: 600; color: var(--text-primary);">${trade.target_rr}:1</span></div>
           <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: var(--text-secondary);">Actual R:R Realized</span><span style="font-weight: 600; color: var(--text-primary);">${trade.actual_rr}:1</span></div>
         </div>
@@ -793,12 +823,13 @@ function openBacktestDetailsDrawer(trade) {
   document.getElementById('close-drawer-btn').addEventListener('click', closeDrawer);
   overlay.addEventListener('click', closeDrawer);
 
-  document.getElementById('delete-drawer-backtest-btn').addEventListener('click', () => {
-    if (confirm('Are you sure you want to permanently delete this backtest record?')) {
-      deleteStoreData('BacktestingJournal', trade.id).then(() => {
-        closeDrawer();
-        AppState.refreshCache();
-      });
+  document.getElementById('delete-drawer-backtest-btn').addEventListener('click', async () => {
+    if (await requestBacktestDeleteConfirmation(trade.pair)) {
+      await deleteStoreData('BacktestingJournal', trade.id);
+      await applyAccountTradeChange(trade, null);
+      closeDrawer();
+      AppState.refreshCache();
+      showTradeDeletedNotification();
     }
   });
 
@@ -811,6 +842,45 @@ function openBacktestDetailsDrawer(trade) {
     img.addEventListener('click', () => {
       openBacktestFullscreenLightbox(trade);
     });
+  });
+}
+
+function requestBacktestDeleteConfirmation(pair = '') {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay active delete-confirmation-overlay';
+    overlay.innerHTML = `
+      <div class="modal-container delete-confirmation-modal" role="dialog" aria-modal="true" aria-labelledby="delete-confirmation-title">
+        <div class="delete-confirmation-icon">!</div>
+        <div class="delete-confirmation-content">
+          <div class="modal-kicker">Permanent action</div>
+          <h3 id="delete-confirmation-title">Delete Backtest Trade?</h3>
+          <p>This will permanently remove <strong>${pair || 'this record'}</strong> from your backtesting journal.</p>
+        </div>
+        <div class="delete-confirmation-actions">
+          <button type="button" class="btn btn-secondary" id="cancel-delete-confirmation">Cancel</button>
+          <button type="button" class="btn btn-danger" id="confirm-delete-confirmation">Delete Trade</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    let keyHandler;
+    const finish = value => {
+      if (keyHandler) document.removeEventListener('keydown', keyHandler);
+      overlay.remove();
+      resolve(value);
+    };
+    overlay.querySelector('#cancel-delete-confirmation').addEventListener('click', () => finish(false));
+    overlay.querySelector('#confirm-delete-confirmation').addEventListener('click', () => finish(true));
+    overlay.addEventListener('click', event => {
+      if (event.target === overlay) finish(false);
+    });
+    keyHandler = function onKeydown(event) {
+      if (event.key === 'Escape') {
+        finish(false);
+      }
+    };
+    document.addEventListener('keydown', keyHandler);
   });
 }
 
