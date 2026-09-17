@@ -4,6 +4,7 @@ let reportType = 'monthly'; // 'daily', 'weekly', 'monthly', 'yearly'
 let activeReportSource = 'live'; // 'live', 'backtest'
 let selectedReportYear = 'all';
 let selectedReportSession = 'all';
+let selectedReportPurgeTime = 'all';
 
 function normalizeReportSession(session) {
   const value = String(session || '').trim().toLowerCase();
@@ -14,15 +15,61 @@ function normalizeReportSession(session) {
   return session || 'Other';
 }
 
+function normalizeReportPurgeTime(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+  const lowered = normalized.toLowerCase();
+  if (lowered === '8:00 am' || lowered === '8am' || lowered === '8 am') return '8:00 AM';
+  if (lowered === '8:00 pm' || lowered === '8pm' || lowered === '8 pm') return '8:00 PM';
+  if (lowered === '9:00 pm' || lowered === '9pm' || lowered === '9 pm') return '9:00 PM';
+  return normalized;
+}
+
+export function getBestPurgeTime(trades = []) {
+  const groups = new Map();
+
+  trades.forEach(trade => {
+    const purgeTime = normalizeReportPurgeTime(trade.purgeTime ?? trade.purge_time);
+    if (!purgeTime) return;
+
+    if (!groups.has(purgeTime)) {
+      groups.set(purgeTime, { totalR: 0, wins: 0, trades: 0 });
+    }
+
+    const bucket = groups.get(purgeTime);
+    const rrValue = Number(trade.rr ?? trade.target_rr ?? trade.actual_rr ?? 0) || 0;
+    const realizedR = trade.result === 'Win' ? rrValue : (trade.result === 'Loss' ? -1 : 0);
+
+    bucket.totalR += realizedR;
+    bucket.trades += 1;
+    if (trade.result === 'Win') bucket.wins += 1;
+  });
+
+  if (!groups.size) return 'N/A';
+
+  return [...groups.entries()].sort((a, b) => {
+    const totalDiff = b[1].totalR - a[1].totalR;
+    if (totalDiff !== 0) return totalDiff;
+    const winRateA = a[1].trades ? (a[1].wins / a[1].trades) * 100 : 0;
+    const winRateB = b[1].trades ? (b[1].wins / b[1].trades) * 100 : 0;
+    return winRateB - winRateA;
+  })[0][0];
+}
+
 export function renderReports(container) {
   const trades = activeReportSource === 'live' ? AppState.tradingTrades : AppState.backtestTrades;
 
   // Filter trades based on reportType
   const reportYears = [...new Set(trades.map(trade => new Date(trade.date).getFullYear()).filter(Number.isFinite))].sort((a, b) => b - a);
   const reportSessions = [...new Set(trades.map(trade => normalizeReportSession(trade.session)))].sort();
+  const reportPurgeTimes = [...new Set(trades.map(trade => normalizeReportPurgeTime(trade.purgeTime ?? trade.purge_time)).filter(Boolean))].sort((a, b) => {
+    const rank = ['8:00 AM', '8:00 PM', '9:00 PM'];
+    return (rank.indexOf(a) === -1 ? 99 : rank.indexOf(a)) - (rank.indexOf(b) === -1 ? 99 : rank.indexOf(b));
+  });
   if (selectedReportYear !== 'all' && !reportYears.includes(Number(selectedReportYear))) selectedReportYear = 'all';
   if (selectedReportSession !== 'all' && !reportSessions.includes(selectedReportSession)) selectedReportSession = 'all';
-  const filtered = filterTradesByPeriod(trades, reportType, selectedReportYear, selectedReportSession);
+  if (selectedReportPurgeTime !== 'all' && !reportPurgeTimes.includes(selectedReportPurgeTime)) selectedReportPurgeTime = 'all';
+  const filtered = filterTradesByPeriod(trades, reportType, selectedReportYear, selectedReportSession, selectedReportPurgeTime);
   const metrics = calculatePeriodMetrics(filtered);
   const dateRangeLabel = getPeriodRangeLabel(reportType, selectedReportYear);
 
@@ -61,6 +108,14 @@ export function renderReports(container) {
           <select id="report-year-selector" class="form-control" style="width: 100%;">
             <option value="all" ${selectedReportYear === 'all' ? 'selected' : ''}>All Years</option>
             ${reportYears.map(year => `<option value="${year}" ${Number(selectedReportYear) === year ? 'selected' : ''}>${year}</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="card" style="padding: 20px;">
+          <h4 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.05em;">Purge Time</h4>
+          <select id="report-purge-time-selector" class="form-control" style="width: 100%;">
+            <option value="all" ${selectedReportPurgeTime === 'all' ? 'selected' : ''}>All Purge Times</option>
+            ${['8:00 AM', '8:00 PM', '9:00 PM'].filter(option => reportPurgeTimes.includes(option) || selectedReportPurgeTime === option).map(option => `<option value="${option}" ${selectedReportPurgeTime === option ? 'selected' : ''}>${option}</option>`).join('')}
           </select>
         </div>
 
@@ -117,6 +172,10 @@ export function renderReports(container) {
               <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">${metrics.total}</div>
             </div>
             <div style="background: var(--bg-primary); padding: 12px; border-radius: var(--border-radius-md); border: 1px solid var(--border-color);">
+              <span style="font-size: 10px; font-weight:700; color: var(--text-muted); text-transform: uppercase;">Best Purge Time</span>
+              <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">${getBestPurgeTime(filtered) || 'N/A'}</div>
+            </div>
+            <div style="background: var(--bg-primary); padding: 12px; border-radius: var(--border-radius-md); border: 1px solid var(--border-color);">
               <span style="font-size: 10px; font-weight:700; color: var(--text-muted); text-transform: uppercase;">Win Rate</span>
               <div style="font-size: 20px; font-weight: 700; color: var(--color-win); margin-top: 4px;">${metrics.winRate}%</div>
             </div>
@@ -148,6 +207,7 @@ export function renderReports(container) {
                     <th>Pair</th>
                     <th>Direction</th>
                     <th>Session</th>
+                    <th>Purge Time</th>
                     <th>Result</th>
                     <th>RR</th>
                     <th>Risk %</th>
@@ -163,12 +223,14 @@ export function renderReports(container) {
                         const resBadge = t.result === 'Win' ? 'badge-win' : (t.result === 'Loss' ? 'badge-loss' : 'badge-be');
                         const rrValue = t.rr ?? t.target_rr ?? t.actual_rr ?? 0;
                         const riskValue = t.riskPercent ?? t.risk_percent ?? 0;
+                        const purgeTimeValue = normalizeReportPurgeTime(t.purgeTime ?? t.purge_time);
                         return `
                           <tr>
                             <td>${t.date}</td>
                             <td style="font-weight: 700;">${t.pair}</td>
                             <td><span class="badge ${typeBadge}">${typeValue}</span></td>
                             <td><span class="badge badge-session ${t.session.toLowerCase().replace(' ', '')}">${t.session}</span></td>
+                            <td>${purgeTimeValue || '—'}</td>
                             <td><span class="badge ${resBadge}">${t.result}</span></td>
                             <td style="font-weight:600;">${rrValue}:1</td>
                             <td>${riskValue}%</td>
@@ -238,6 +300,10 @@ export function renderReports(container) {
     selectedReportSession = event.target.value;
     renderReports(container);
   });
+  document.getElementById('report-purge-time-selector').addEventListener('change', (event) => {
+    selectedReportPurgeTime = event.target.value;
+    renderReports(container);
+  });
 
   // Export triggers
   document.getElementById('export-pdf-btn').addEventListener('click', () => {
@@ -254,12 +320,16 @@ export function renderReports(container) {
 }
 
 // Logic to filter trades based on period selected
-function filterTradesByPeriod(trades, type, year = 'all', session = 'all') {
+function filterTradesByPeriod(trades, type, year = 'all', session = 'all', purgeTime = 'all') {
   const sorted = [...trades].sort((a, b) => new Date(b.date) - new Date(a.date));
   if (sorted.length === 0) return [];
 
   if (year !== 'all') {
-    return sorted.filter(trade => new Date(trade.date).getFullYear() === Number(year) && (session === 'all' || normalizeReportSession(trade.session) === session));
+    return sorted.filter(trade =>
+      new Date(trade.date).getFullYear() === Number(year) &&
+      (session === 'all' || normalizeReportSession(trade.session) === session) &&
+      (purgeTime === 'all' || normalizeReportPurgeTime(trade.purgeTime ?? trade.purge_time) === purgeTime)
+    );
   }
 
   const newestDate = new Date(sorted[0].date);
@@ -267,6 +337,7 @@ function filterTradesByPeriod(trades, type, year = 'all', session = 'all') {
 
   return sorted.filter(t => {
     if (session !== 'all' && normalizeReportSession(t.session) !== session) return false;
+    if (purgeTime !== 'all' && normalizeReportPurgeTime(t.purgeTime ?? t.purge_time) !== purgeTime) return false;
     const tradeDate = new Date(t.date);
     const diffDays = Math.ceil(Math.abs(newestDate - tradeDate) / msInDay);
 

@@ -302,6 +302,8 @@ function initModalLogic() {
       session: document.getElementById('form-session').value,
       accountType: document.getElementById('form-account-type').value,
       pair: document.getElementById('form-pair').value.toUpperCase(),
+      purgeTime: document.getElementById('form-purge-time').value.trim() || null,
+      purge_time: document.getElementById('form-purge-time').value.trim() || null,
       type: directionSelect.value,
       entryPrice: parseFloat(entryInput.value),
       stopLoss: parseFloat(slInput.value),
@@ -477,6 +479,7 @@ export function openTradeModal(trade = null, journalType = null) {
     document.getElementById('form-session').value = trade.session;
     document.getElementById('form-account-type').value = trade.accountType || 'Challenge';
     document.getElementById('form-pair').value = trade.pair;
+    document.getElementById('form-purge-time').value = trade.purgeTime || trade.purge_time || '';
     document.getElementById('form-direction').value = trade.type;
     document.getElementById('form-entry').value = trade.entryPrice;
     document.getElementById('form-sl').value = trade.stopLoss;

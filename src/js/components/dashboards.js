@@ -1,4 +1,5 @@
 import { AppState } from '../state.js';
+import { getBestPurgeTime } from './reports.js';
 import { openTradeModal } from '../main.js';
 import { openBacktestModal } from './backtesting.js';
 import { buildBacktestAnalytics, getClosedBacktestTrades } from '../backtesting/analytics.js';
@@ -84,6 +85,10 @@ export function renderDashboard(container) {
       <div class="metric-card" style="min-height: 90px; padding: 16px;">
         <div class="metric-card-label" style="font-size: 10px;">Best Session</div>
         <div class="metric-card-value" style="font-size: 20px; color: var(--accent-color);">${metrics.bestSession}</div>
+      </div>
+      <div class="metric-card" style="min-height: 90px; padding: 16px;">
+        <div class="metric-card-label" style="font-size: 10px;">Best Purge Time</div>
+        <div class="metric-card-value" style="font-size: 20px; color: var(--accent-secondary);">${metrics.bestPurgeTime}</div>
       </div>
       <div class="metric-card" style="min-height: 90px; padding: 16px;">
         <div class="metric-card-label" style="font-size: 10px;">Loss Rate</div>
@@ -230,6 +235,7 @@ function buildBacktestDashboardMetrics(analytics) {
     lossStreak: analytics.lossStreak,
     bestPair: analytics.bestPair,
     bestSession: analytics.bestSession,
+    bestPurgeTime: analytics.bestPurgeTime,
     avgRisk: analytics.averageRisk.toFixed(2),
     equityData: analytics.equity.map(point => point.cumulativeR)
   };
@@ -240,7 +246,7 @@ function calculateMetrics(trades) {
   const total = trades.length;
   if (total === 0) {
     return {
-      total: 0, winRate: 0, lossRate: 0, beRate: 0, avgRR: '0.00', profitFactor: '0.00', netR: '0.00', maxDrawdown: 0, winStreak: 0, lossStreak: 0, bestPair: 'N/A', bestSession: 'N/A', avgRisk: '0.00', equityData: []
+      total: 0, winRate: 0, lossRate: 0, beRate: 0, avgRR: '0.00', profitFactor: '0.00', netR: '0.00', maxDrawdown: 0, winStreak: 0, lossStreak: 0, bestPair: 'N/A', bestSession: 'N/A', bestPurgeTime: 'N/A', avgRisk: '0.00', equityData: []
     };
   }
 
@@ -359,6 +365,7 @@ function calculateMetrics(trades) {
     lossStreak,
     bestPair,
     bestSession,
+    bestPurgeTime: getBestPurgeTime(trades),
     avgRisk,
     equityData
   };

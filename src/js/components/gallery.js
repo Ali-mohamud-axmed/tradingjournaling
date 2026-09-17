@@ -177,21 +177,17 @@ function openGalleryFullscreenViewer(trade) {
         </button>
       </div>
       <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
-        <div class="slider-overlay-body">
-          <div class="comparison-slider-container" id="gal-slider-container">
-            <img src="${trade.beforeImage || ''}" class="slider-image slider-image-before">
-            <div class="slider-image-after" id="gal-slider-after-container">
-              <img src="${trade.afterImage || ''}" class="slider-image" style="width: 800px; max-width: none;">
-            </div>
-            <div class="slider-handle" id="gal-slider-handle">
-              <div class="slider-handle-button">↔</div>
-            </div>
-            <span class="slider-label slider-label-before">BEFORE (SETUP)</span>
-            <span class="slider-label slider-label-after">AFTER (OUTCOME)</span>
-          </div>
+        <div style="display:flex; justify-content:center; gap:12px; margin-bottom:8px;">
+          <button type="button" class="comparison-tab active" data-view="before" aria-pressed="true" style="padding:8px 16px; border-radius:999px; border:1px solid rgba(96,165,250,.35); background:rgba(59,130,246,.12); color:#eff6ff; font-weight:700; cursor:pointer;">Before</button>
+          <button type="button" class="comparison-tab" data-view="after" aria-pressed="false" style="padding:8px 16px; border-radius:999px; border:1px solid rgba(148,163,184,.2); background:rgba(15,23,42,.8); color:var(--text-primary); font-weight:700; cursor:pointer;">After</button>
         </div>
-        <div style="color: #94a3b8; font-size:13px; text-align:center;">
-          Drag the center handle left/right to compare trade execution setup with the actual outcome.
+        <div style="border-radius: var(--border-radius-md); overflow: hidden; border: 1px solid var(--border-color); aspect-ratio: 16/9; background: #000; position: relative;">
+          <div class="comparison-panel" data-view-panel="before" style="display:block; width:100%; height:100%;">
+            ${trade.beforeImage ? `<img src="${trade.beforeImage}" alt="Before setup chart" style="width:100%; height:100%; object-fit:contain; display:block;">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px;">No Before Setup Image</div>`}
+          </div>
+          <div class="comparison-panel" data-view-panel="after" style="display:none; width:100%; height:100%;">
+            ${trade.afterImage ? `<img src="${trade.afterImage}" alt="After outcome chart" style="width:100%; height:100%; object-fit:contain; display:block;">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px;">No After Outcome Image</div>`}
+          </div>
         </div>
       </div>
     </div>
@@ -208,42 +204,29 @@ function openGalleryFullscreenViewer(trade) {
     if (e.target === viewerModal) closeViewer();
   });
 
-  const container = viewerModal.querySelector('#gal-slider-container');
-  const afterContainer = viewerModal.querySelector('#gal-slider-after-container');
-  const handle = viewerModal.querySelector('#gal-slider-handle');
-  const afterImage = afterContainer.querySelector('img');
+  const tabs = viewerModal.querySelectorAll('.comparison-tab');
+  const panels = viewerModal.querySelectorAll('.comparison-panel');
 
-  let isDragging = false;
+  const setComparisonMode = (mode) => {
+    const selected = mode === 'after' ? 'after' : 'before';
+    tabs.forEach((tab) => {
+      const active = tab.dataset.view === selected;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-pressed', String(active));
+      tab.style.borderColor = active ? 'rgba(96,165,250,.35)' : 'rgba(148,163,184,.2)';
+      tab.style.background = active ? 'rgba(59,130,246,.12)' : 'rgba(15,23,42,.8)';
+      tab.style.color = active ? '#eff6ff' : 'var(--text-primary)';
+    });
 
-  const updateSlider = (clientX) => {
-    const rect = container.getBoundingClientRect();
-    let position = clientX - rect.left;
-    if (position < 0) position = 0;
-    if (position > rect.width) position = rect.width;
-
-    const percentage = (position / rect.width) * 100;
-    afterContainer.style.width = `${percentage}%`;
-    handle.style.left = `${percentage}%`;
-    afterImage.style.width = `${rect.width}px`;
+    panels.forEach((panel) => {
+      const active = panel.dataset.viewPanel === selected;
+      panel.style.display = active ? 'block' : 'none';
+    });
   };
 
-  setTimeout(() => {
-    const rect = container.getBoundingClientRect();
-    afterImage.style.width = `${rect.width}px`;
-  }, 100);
-
-  handle.addEventListener('mousedown', () => isDragging = true);
-  window.addEventListener('mouseup', () => isDragging = false);
-  window.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    updateSlider(e.clientX);
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => setComparisonMode(tab.dataset.view));
   });
 
-  // Touch
-  handle.addEventListener('touchstart', () => isDragging = true);
-  window.addEventListener('touchend', () => isDragging = false);
-  window.addEventListener('touchmove', (e) => {
-    if (!isDragging) return;
-    updateSlider(e.touches[0].clientX);
-  });
+  setComparisonMode('before');
 }

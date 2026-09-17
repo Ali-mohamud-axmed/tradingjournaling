@@ -8,7 +8,7 @@ vi.mock('../src/js/state.js', () => ({
   }
 }));
 
-import { buildAccountPerformanceModel } from '../src/js/components/reports.js';
+import { buildAccountPerformanceModel, getBestPurgeTime } from '../src/js/components/reports.js';
 
 describe('buildAccountPerformanceModel', () => {
   it('aggregates trades by year and month for a selected account', () => {
@@ -28,5 +28,17 @@ describe('buildAccountPerformanceModel', () => {
     expect(model.years[0].months[0].netR).toBe(2);
     expect(model.years[0].totalTrades).toBe(2);
     expect(model.years[0].netR).toBe(1);
+  });
+
+  it('selects the purge time with the strongest aggregate performance', () => {
+    const trades = [
+      { date: '2025-01-05', pair: 'EURUSD', result: 'Win', rr: 2, session: 'London', purgeTime: '8:00 AM' },
+      { date: '2025-01-06', pair: 'EURUSD', result: 'Loss', rr: 1, session: 'London', purgeTime: '8:00 AM' },
+      { date: '2025-01-07', pair: 'GBPUSD', result: 'Win', rr: 3, session: 'London', purgeTime: '8:00 PM' },
+      { date: '2025-01-08', pair: 'GBPUSD', result: 'Win', rr: 2, session: 'London', purgeTime: '8:00 PM' },
+      { date: '2025-01-09', pair: 'USDJPY', result: 'Loss', rr: 1, session: 'London', purgeTime: '9:00 PM' }
+    ];
+
+    expect(getBestPurgeTime(trades)).toBe('8:00 PM');
   });
 });

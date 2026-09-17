@@ -15,6 +15,49 @@ let activeFilters = {
   sortBy: 'date-desc'
 };
 
+function requestChecklistSectionName() {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay active checklist-section-modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-container checklist-section-modal" role="dialog" aria-modal="true" aria-labelledby="checklist-section-modal-title">
+        <div class="modal-header">
+          <div>
+            <div class="modal-kicker">Checklist Library</div>
+            <h3 id="checklist-section-modal-title">Add Checklist Section</h3>
+          </div>
+          <button type="button" class="modal-close checklist-section-cancel" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label" for="checklist-section-name">Section Name</label>
+          <input id="checklist-section-name" class="form-control" type="text" placeholder="e.g. London Open Confirmation" autocomplete="off">
+          <p class="checklist-section-helper">Create a reusable group of confirmation rules for your trades.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary checklist-section-cancel">Cancel</button>
+          <button type="button" class="btn btn-primary" id="confirm-checklist-section-btn">Add Section</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#checklist-section-name');
+    const finish = value => {
+      overlay.remove();
+      resolve(value);
+    };
+    overlay.querySelectorAll('.checklist-section-cancel').forEach(button => button.addEventListener('click', () => finish('')));
+    overlay.addEventListener('click', event => {
+      if (event.target === overlay) finish('');
+    });
+    overlay.querySelector('#confirm-checklist-section-btn').addEventListener('click', () => finish(input.value.trim()));
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Enter') finish(input.value.trim());
+      if (event.key === 'Escape') finish('');
+    });
+    requestAnimationFrame(() => input.focus());
+  });
+}
+
 export function renderBacktesting(container) {
   const trades = AppState.backtestTrades;
 
@@ -438,6 +481,13 @@ export function openBacktestModal(record = null) {
 
           <div class="form-row">
             <div class="form-group">
+              <label class="form-label" for="back-purge-time">Purge Time</label>
+              <input type="text" id="back-purge-time" class="form-control" placeholder="e.g. 8:00 AM" value="${record?.purgeTime || record?.purge_time || ''}">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
               <label class="form-label" for="back-timeframe">Timeframe</label>
               <select id="back-timeframe" class="form-control">
                 <option value="M1" ${record?.timeframe === 'M1' ? 'selected' : ''}>M1</option>
@@ -496,7 +546,21 @@ export function openBacktestModal(record = null) {
             <textarea id="back-lessons" rows="3" class="form-control" placeholder="What did this trade teach you?">${record?.lesson_learned || ''}</textarea>
           </div>
 
-          <!-- Section 5: Drag and Drop Screenshots -->
+          <!-- Section 5: Checklist Confirmation -->
+          <h4 class="modal-section-title">Checklist Confirmation</h4>
+          <div class="checklist-builder-shell" style="margin-bottom: 16px;">
+            <div class="checklist-builder-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom: 12px; flex-wrap: wrap;">
+              <select id="back-checklist-section-select" class="form-control" style="max-width: 280px; flex: 1; min-width: 180px;"></select>
+              <button type="button" class="btn btn-primary" id="back-add-checklist-section-btn" style="padding: 0 14px; height: 38px;">+ Add Section</button>
+            </div>
+            <div id="backtest-checklist-area" style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-bottom: 12px;"></div>
+            <div style="display:flex; gap:10px; margin-top: 8px;">
+              <input type="text" id="back-new-checklist-item" class="form-control" placeholder="Enter a new checklist item..." style="flex:1;">
+              <button type="button" class="btn btn-success" id="back-add-checklist-item-btn" style="padding: 0 16px; min-width: 50px;">+</button>
+            </div>
+          </div>
+
+          <!-- Section 6: Drag and Drop Screenshots -->
           <h4 class="modal-section-title">Screenshots</h4>
           <div class="screenshot-dropzone-grid">
             <div class="form-group">
@@ -539,6 +603,129 @@ export function openBacktestModal(record = null) {
 
   modal.classList.add('active');
 
+  const defaultChecklist = ['HTF Trend Aligned', 'Liquidity Swept', 'MSS on LTF', 'OB Tapped', 'Risk defined', 'Order Flow', 'KL', 'TS', 'SMT / 2SMT', '5M #'];
+  const checklistSections = AppState.checklists.length
+    ? AppState.checklists.map(section => ({ ...section, items: [...(section.items || [])] }))
+    : [{ name: 'Standard Confirmation', items: defaultChecklist }];
+  const selectedChecklistValues = new Set(record?.checklist || []);
+  let selectedSectionIndex = 0;
+  const sectionSelect = document.getElementById('back-checklist-section-select');
+  const checklistArea = document.getElementById('backtest-checklist-area');
+  let checklistItems = [];
+
+  const currentSection = () => checklistSections[selectedSectionIndex];
+  const saveChecklistSection = async () => {
+    const section = currentSection();
+    if (section.id) await updateStoreData('Checklists', section);
+  };
+
+  const renderSectionOptions = () => {
+    sectionSelect.innerHTML = checklistSections.map((section, index) => `<option value="${index}">${section.name}</option>`).join('');
+    sectionSelect.value = String(selectedSectionIndex);
+  };
+
+  const renderChecklistItems = () => {
+    checklistItems = currentSection().items;
+    checklistArea.innerHTML = checklistItems.map((item, index) => `
+      <div class="checklist-item-row" style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border:1px solid var(--border-color); border-radius:12px; background:rgba(15,23,42,.8);">
+        <label class="checkbox-label" style="display:flex; align-items:center; gap:8px; margin:0; flex:1; min-width:0;">
+          <input type="checkbox" class="checklist-form-checkbox" value="${item}" id="back-chk-${index}" ${selectedChecklistValues.has(item) ? 'checked' : ''}>
+          <span class="checklist-item-text" style="font-size:13px; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item}</span>
+        </label>
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="checklist-edit-btn" data-index="${index}" aria-label="Rename ${item}" style="background:transparent; border:1px solid rgba(148,163,184,.2); color:var(--text-muted); border-radius:8px; width:28px; height:28px; cursor:pointer;">✎</button>
+          <button type="button" class="checklist-remove-btn" data-index="${index}" aria-label="Remove ${item}" style="background:transparent; border:1px solid rgba(148,163,184,.2); color:var(--text-muted); border-radius:8px; width:28px; height:28px; cursor:pointer;">×</button>
+        </div>
+      </div>
+    `).join('');
+
+    checklistArea.querySelectorAll('.checklist-form-checkbox').forEach(input => {
+      input.addEventListener('change', () => {
+        if (input.checked) selectedChecklistValues.add(input.value);
+        else selectedChecklistValues.delete(input.value);
+      });
+    });
+
+    checklistArea.querySelectorAll('.checklist-edit-btn').forEach(button => {
+      button.addEventListener('click', () => {
+        const index = Number(button.dataset.index);
+        const row = button.closest('.checklist-item-row');
+        const text = row.querySelector('.checklist-item-text');
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'checklist-inline-edit';
+        input.value = checklistItems[index];
+        text.replaceWith(input);
+        input.focus();
+        input.select();
+
+        const saveName = async () => {
+          const nextName = input.value.trim();
+          if (nextName && !checklistItems.some((item, itemIndex) => item === nextName && itemIndex !== index)) {
+            selectedChecklistValues.delete(checklistItems[index]);
+            checklistItems[index] = nextName;
+            if (document.getElementById(`back-chk-${index}`)?.checked) selectedChecklistValues.add(nextName);
+          }
+          renderChecklistItems();
+          await saveChecklistSection();
+        };
+
+        input.addEventListener('keydown', event => {
+          if (event.key === 'Enter') saveName();
+          if (event.key === 'Escape') renderChecklistItems();
+        });
+        input.addEventListener('blur', saveName, { once: true });
+      });
+    });
+
+    checklistArea.querySelectorAll('.checklist-remove-btn').forEach(button => {
+      button.addEventListener('click', async () => {
+        checklistItems.splice(Number(button.dataset.index), 1);
+        renderChecklistItems();
+        await saveChecklistSection();
+      });
+    });
+  };
+
+  renderSectionOptions();
+  renderChecklistItems();
+
+  sectionSelect.addEventListener('change', async () => {
+    selectedSectionIndex = Number(sectionSelect.value);
+    renderChecklistItems();
+  });
+
+  document.getElementById('back-add-checklist-item-btn').addEventListener('click', async () => {
+    const input = document.getElementById('back-new-checklist-item');
+    const item = input.value.trim();
+    if (!item || checklistItems.includes(item)) return;
+    checklistItems.push(item);
+    currentSection().items = checklistItems;
+    input.value = '';
+    renderChecklistItems();
+    await saveChecklistSection();
+  });
+
+  document.getElementById('back-new-checklist-item').addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      document.getElementById('back-add-checklist-item-btn').click();
+    }
+  });
+
+  document.getElementById('back-add-checklist-section-btn').addEventListener('click', async () => {
+    const name = await requestChecklistSectionName();
+    if (!name) return;
+    const section = { name, items: [], userEmail: AppState.user.email };
+    const added = await addStoreData('Checklists', section);
+    section.id = added?.id || added;
+    checklistSections.push(section);
+    AppState.checklists = [...(AppState.checklists || []), section];
+    selectedSectionIndex = checklistSections.length - 1;
+    renderSectionOptions();
+    renderChecklistItems();
+  });
+
   // Input elements
   const directionSelect = document.getElementById('back-direction');
   const targetRRInput = document.getElementById('back-target-rr');
@@ -564,6 +751,11 @@ export function openBacktestModal(record = null) {
     const id = document.getElementById('backtest-id').value;
     const previousTrade = id ? AppState.backtestTrades.find(trade => trade.id === Number(id)) : null;
     const dateStr = document.getElementById('back-date').value;
+    const purgeTimeValue = (document.getElementById('back-purge-time').value || '').trim();
+    const checkedChecklist = [];
+    document.querySelectorAll('.checklist-form-checkbox').forEach(cb => {
+      if (cb.checked) checkedChecklist.push(cb.value);
+    });
 
     const targetRRValue = parseFloat(targetRRInput.value) || 0.0;
     const resultValue = resultSelect.value;
@@ -594,12 +786,15 @@ export function openBacktestModal(record = null) {
       timeframe: document.getElementById('back-timeframe').value,
       strategy: document.getElementById('back-strategy').value.trim() || null,
       setup: document.getElementById('back-setup').value.trim() || null,
+      purgeTime: purgeTimeValue || null,
+      purge_time: purgeTimeValue || null,
       risk_percent: parseFloat(document.getElementById('back-risk').value || 1.0),
       target_rr: targetRRValue,
       pl_money: normalizedPL,
       actual_rr: calculatedActualRR,
       result: resultValue,
       lesson_learned: document.getElementById('back-lessons').value.trim() || null,
+      checklist: checkedChecklist,
       before_image: document.getElementById('back-before-img').value || null,
       after_image: document.getElementById('back-after-img').value || null,
       updated_at: new Date().toISOString()
@@ -784,21 +979,29 @@ function openBacktestDetailsDrawer(trade) {
         </div>
       </div>
 
-      <!-- Screenshot Comparison Slider -->
+      <!-- Checklist Confirmation -->
+      <div class="card" style="margin-bottom: 24px; padding: 18px;">
+        <h4 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.05em;">Checklist Confirmation</h4>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          ${(trade.checklist && trade.checklist.length > 0)
+            ? trade.checklist.map(item => `<span class="badge badge-win" style="font-size: 10px;">✓ ${item}</span>`).join('')
+            : '<span style="font-size: 12px; color: var(--text-muted);">No checklist confirmations recorded.</span>'}
+        </div>
+      </div>
+
+      <!-- Screenshot Comparison Tabs -->
       <div class="card" style="margin-bottom: 24px; padding: 18px;">
         <h4 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.05em;">Chart Comparison</h4>
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-          <div>
-            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-weight: 700; text-transform: uppercase;">Before Setup</div>
-            <div style="border-radius: var(--border-radius-md); overflow: hidden; border: 1px solid var(--border-color); aspect-ratio: 16/9; background: #000;">
-              ${trade.before_image ? `<img src="${trade.before_image}" style="width:100%; height:100%; object-fit:contain; cursor:pointer;" class="drawer-comp-img">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px;">No before image</div>`}
-            </div>
+        <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+          <button type="button" class="comparison-tab active" data-view="before" aria-pressed="true" style="border:1px solid rgba(96,165,250,.35); background:rgba(59,130,246,.12); color:#eff6ff; padding:8px 14px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; cursor:pointer;">Before</button>
+          <button type="button" class="comparison-tab" data-view="after" aria-pressed="false" style="border:1px solid rgba(148,163,184,.2); background:rgba(15,23,42,.8); color:var(--text-primary); padding:8px 14px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; cursor:pointer;">After</button>
+        </div>
+        <div style="border-radius: var(--border-radius-md); overflow: hidden; border: 1px solid var(--border-color); aspect-ratio: 16/9; background: #000; position: relative;">
+          <div class="comparison-panel" data-view-panel="before" style="display:block; width:100%; height:100%;">
+            ${trade.before_image ? `<img src="${trade.before_image}" alt="Before setup chart" style="width:100%; height:100%; object-fit:contain; display:block;" class="drawer-comp-img">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px;">No Before Setup Image</div>`}
           </div>
-          <div>
-            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-weight: 700; text-transform: uppercase;">After Outcome</div>
-            <div style="border-radius: var(--border-radius-md); overflow: hidden; border: 1px solid var(--border-color); aspect-ratio: 16/9; background: #000;">
-              ${trade.after_image ? `<img src="${trade.after_image}" style="width:100%; height:100%; object-fit:contain; cursor:pointer;" class="drawer-comp-img">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px;">No after image</div>`}
-            </div>
+          <div class="comparison-panel" data-view-panel="after" style="display:none; width:100%; height:100%;">
+            ${trade.after_image ? `<img src="${trade.after_image}" alt="After outcome chart" style="width:100%; height:100%; object-fit:contain; display:block;" class="drawer-comp-img">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px;">No After Outcome Image</div>`}
           </div>
         </div>
       </div>
@@ -814,6 +1017,34 @@ function openBacktestDetailsDrawer(trade) {
 
   overlay.classList.add('active');
   drawer.classList.add('active');
+
+  const comparisonTabs = drawer.querySelectorAll('.comparison-tab');
+  const comparisonPanels = drawer.querySelectorAll('.comparison-panel');
+
+  const setComparisonView = (view) => {
+    const selected = view === 'after' ? 'after' : 'before';
+    comparisonTabs.forEach((tab) => {
+      const active = tab.dataset.view === selected;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-pressed', String(active));
+      tab.style.borderColor = active ? 'rgba(96,165,250,.35)' : 'rgba(148,163,184,.2)';
+      tab.style.background = active ? 'rgba(59,130,246,.12)' : 'rgba(15,23,42,.8)';
+      tab.style.color = active ? '#eff6ff' : 'var(--text-primary)';
+    });
+
+    comparisonPanels.forEach((panel) => {
+      const active = panel.dataset.viewPanel === selected;
+      panel.style.display = active ? 'block' : 'none';
+    });
+  };
+
+  comparisonTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      setComparisonView(tab.dataset.view);
+    });
+  });
+
+  setComparisonView('before');
 
   const closeDrawer = () => {
     overlay.classList.remove('active');
@@ -899,21 +1130,20 @@ function openBacktestFullscreenLightbox(trade) {
         </button>
       </div>
       <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
-        <div class="slider-overlay-body">
-          <div class="comparison-slider-container" id="backtest-slider-container">
-            <img src="${trade.before_image || ''}" class="slider-image slider-image-before">
-            <div class="slider-image-after" id="backtest-slider-after-container">
-              <img src="${trade.after_image || ''}" class="slider-image" style="width: 800px; max-width: none;">
-            </div>
-            <div class="slider-handle" id="backtest-slider-handle">
-              <div class="slider-handle-button">↔</div>
-            </div>
-            <span class="slider-label slider-label-before">BEFORE (SETUP)</span>
-            <span class="slider-label slider-label-after">AFTER (OUTCOME)</span>
+        <div style="display:flex; justify-content:center; gap:12px; margin-bottom:8px;">
+          <button type="button" class="comparison-tab active" data-view="before" aria-pressed="true" style="padding:8px 16px; border-radius:999px; border:1px solid rgba(96,165,250,.35); background:rgba(59,130,246,.12); color:#eff6ff; font-weight:700; cursor:pointer;">Before</button>
+          <button type="button" class="comparison-tab" data-view="after" aria-pressed="false" style="padding:8px 16px; border-radius:999px; border:1px solid rgba(148,163,184,.2); background:rgba(15,23,42,.8); color:var(--text-primary); font-weight:700; cursor:pointer;">After</button>
+        </div>
+        <div style="border-radius: var(--border-radius-md); overflow: hidden; border: 1px solid var(--border-color); aspect-ratio: 16/9; background: #000; position: relative;">
+          <div class="comparison-panel" data-view-panel="before" style="display:block; width:100%; height:100%;">
+            ${trade.before_image ? `<img src="${trade.before_image}" alt="Before setup chart" style="width:100%; height:100%; object-fit:contain; display:block;" class="drawer-comp-img">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px;">No Before Setup Image</div>`}
+          </div>
+          <div class="comparison-panel" data-view-panel="after" style="display:none; width:100%; height:100%;">
+            ${trade.after_image ? `<img src="${trade.after_image}" alt="After outcome chart" style="width:100%; height:100%; object-fit:contain; display:block;" class="drawer-comp-img">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px;">No After Outcome Image</div>`}
           </div>
         </div>
         <div style="color: #94a3b8; font-size:13px; text-align:center;">
-          Drag the center handle left/right to compare trade execution setup with the actual outcome.
+          Switch views to inspect the before setup or the final outcome.
         </div>
       </div>
     </div>
@@ -928,43 +1158,31 @@ function openBacktestFullscreenLightbox(trade) {
   viewerModal.querySelector('#close-lightbox-btn').addEventListener('click', closeViewer);
   viewerModal.addEventListener('click', (e) => { if (e.target === viewerModal) closeViewer(); });
 
-  const container = viewerModal.querySelector('#backtest-slider-container');
-  const afterContainer = viewerModal.querySelector('#backtest-slider-after-container');
-  const handle = viewerModal.querySelector('#backtest-slider-handle');
-  const afterImage = afterContainer.querySelector('img');
+  const tabs = viewerModal.querySelectorAll('.comparison-tab');
+  const panels = viewerModal.querySelectorAll('.comparison-panel');
 
-  let isDragging = false;
+  const setComparisonMode = (mode) => {
+    const selected = mode === 'after' ? 'after' : 'before';
+    tabs.forEach((tab) => {
+      const active = tab.dataset.view === selected;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-pressed', String(active));
+      tab.style.borderColor = active ? 'rgba(96,165,250,.35)' : 'rgba(148,163,184,.2)';
+      tab.style.background = active ? 'rgba(59,130,246,.12)' : 'rgba(15,23,42,.8)';
+      tab.style.color = active ? '#eff6ff' : 'var(--text-primary)';
+    });
 
-  const updateSlider = (clientX) => {
-    const rect = container.getBoundingClientRect();
-    let position = clientX - rect.left;
-    if (position < 0) position = 0;
-    if (position > rect.width) position = rect.width;
-
-    const percentage = (position / rect.width) * 100;
-    afterContainer.style.width = `${percentage}%`;
-    handle.style.left = `${percentage}%`;
-    afterImage.style.width = `${rect.width}px`;
+    panels.forEach((panel) => {
+      const active = panel.dataset.viewPanel === selected;
+      panel.style.display = active ? 'block' : 'none';
+    });
   };
 
-  setTimeout(() => {
-    const rect = container.getBoundingClientRect();
-    afterImage.style.width = `${rect.width}px`;
-  }, 100);
-
-  handle.addEventListener('mousedown', () => isDragging = true);
-  window.addEventListener('mouseup', () => isDragging = false);
-  window.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    updateSlider(e.clientX);
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => setComparisonMode(tab.dataset.view));
   });
 
-  handle.addEventListener('touchstart', () => isDragging = true);
-  window.addEventListener('touchend', () => isDragging = false);
-  window.addEventListener('touchmove', (e) => {
-    if (!isDragging) return;
-    updateSlider(e.touches[0].clientX);
-  });
+  setComparisonMode('before');
 }
 
 // Inject Component specific styles

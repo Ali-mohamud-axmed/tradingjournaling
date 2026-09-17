@@ -347,21 +347,19 @@ function openDetailsDrawer(trade, storeName, journalType) {
         </div>
       </div>
 
-      <!-- Screenshot Comparison Slider -->
+      <!-- Screenshot Comparison Tabs -->
       <div class="card" style="margin-bottom: 24px; padding: 18px;">
         <h4 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.05em;">Chart Comparison</h4>
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-          <div>
-            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-weight: 700; text-transform: uppercase;">Before Setup</div>
-            <div style="border-radius: var(--border-radius-md); overflow: hidden; border: 1px solid var(--border-color); aspect-ratio: 16/9; background: #000;">
-              ${trade.beforeScreenshot ? `<img src="${trade.beforeScreenshot}" style="width:100%; height:100%; object-fit:contain; cursor:pointer;" class="details-chart-img">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px;">No screenshot uploaded</div>`}
-            </div>
+        <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+          <button type="button" class="comparison-tab active" data-view="before" aria-pressed="true" style="border:1px solid rgba(96,165,250,.35); background:rgba(59,130,246,.12); color:#eff6ff; padding:8px 14px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; cursor:pointer;">Before</button>
+          <button type="button" class="comparison-tab" data-view="after" aria-pressed="false" style="border:1px solid rgba(148,163,184,.2); background:rgba(15,23,42,.8); color:var(--text-primary); padding:8px 14px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; cursor:pointer;">After</button>
+        </div>
+        <div style="border-radius: var(--border-radius-md); overflow: hidden; border: 1px solid var(--border-color); aspect-ratio: 16/9; background: #000; position: relative;">
+          <div class="comparison-panel" data-view-panel="before" style="display:block; width:100%; height:100%;">
+            ${trade.beforeScreenshot ? `<img src="${trade.beforeScreenshot}" alt="Before setup chart" style="width:100%; height:100%; object-fit:contain; display:block;" class="details-chart-img">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px;">No Before Setup Image</div>`}
           </div>
-          <div>
-            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-weight: 700; text-transform: uppercase;">After Outcome</div>
-            <div style="border-radius: var(--border-radius-md); overflow: hidden; border: 1px solid var(--border-color); aspect-ratio: 16/9; background: #000;">
-              ${trade.afterScreenshot ? `<img src="${trade.afterScreenshot}" style="width:100%; height:100%; object-fit:contain; cursor:pointer;" class="details-chart-img">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px;">No screenshot uploaded</div>`}
-            </div>
+          <div class="comparison-panel" data-view-panel="after" style="display:none; width:100%; height:100%;">
+            ${trade.afterScreenshot ? `<img src="${trade.afterScreenshot}" alt="After outcome chart" style="width:100%; height:100%; object-fit:contain; display:block;" class="details-chart-img">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px;">No After Outcome Image</div>`}
           </div>
         </div>
       </div>
@@ -378,6 +376,34 @@ function openDetailsDrawer(trade, storeName, journalType) {
   // Slide Open transitions
   drawerOverlay.classList.add('active');
   drawer.classList.add('active');
+
+  const comparisonTabs = drawer.querySelectorAll('.comparison-tab');
+  const comparisonPanels = drawer.querySelectorAll('.comparison-panel');
+
+  const setComparisonView = (view) => {
+    const selected = view === 'after' ? 'after' : 'before';
+    comparisonTabs.forEach((tab) => {
+      const active = tab.dataset.view === selected;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-pressed', String(active));
+      tab.style.borderColor = active ? 'rgba(96,165,250,.35)' : 'rgba(148,163,184,.2)';
+      tab.style.background = active ? 'rgba(59,130,246,.12)' : 'rgba(15,23,42,.8)';
+      tab.style.color = active ? '#eff6ff' : 'var(--text-primary)';
+    });
+
+    comparisonPanels.forEach((panel) => {
+      const active = panel.dataset.viewPanel === selected;
+      panel.style.display = active ? 'block' : 'none';
+    });
+  };
+
+  comparisonTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      setComparisonView(tab.dataset.view);
+    });
+  });
+
+  setComparisonView('before');
 
   // Close bindings
   const closeDrawer = () => {
@@ -428,6 +454,10 @@ function openFullscreenViewer(trade) {
         </button>
       </div>
       <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; justify-content:center; gap:12px; margin-bottom:8px;">
+          <button type="button" class="comparison-toggle-btn active" data-mode="before" style="padding:8px 16px; border-radius:999px; border:1px solid rgba(96,165,250,.35); background:rgba(59,130,246,.12); color:#eff6ff; font-weight:700; cursor:pointer;">Before</button>
+          <button type="button" class="comparison-toggle-btn" data-mode="after" style="padding:8px 16px; border-radius:999px; border:1px solid rgba(148,163,184,.2); background:rgba(15,23,42,.8); color:var(--text-primary); font-weight:700; cursor:pointer;">After</button>
+        </div>
         <div class="slider-overlay-body">
           <div class="comparison-slider-container" id="fullscreen-slider-container">
             <!-- Background: Before image -->
@@ -471,8 +501,23 @@ function openFullscreenViewer(trade) {
   const afterContainer = viewerModal.querySelector('#slider-after-container');
   const handle = viewerModal.querySelector('#slider-handle');
   const afterImage = afterContainer.querySelector('img');
+  const toggleButtons = viewerModal.querySelectorAll('.comparison-toggle-btn');
 
   let isDragging = false;
+
+  const setComparisonMode = (mode) => {
+    const isBefore = mode === 'before';
+    const percentage = isBefore ? 0 : 100;
+    afterContainer.style.width = `${percentage}%`;
+    handle.style.left = `${percentage}%`;
+    toggleButtons.forEach(button => {
+      const active = button.dataset.mode === mode;
+      button.classList.toggle('active', active);
+      button.style.borderColor = active ? 'rgba(96,165,250,.35)' : 'rgba(148,163,184,.2)';
+      button.style.background = active ? 'rgba(59,130,246,.12)' : 'rgba(15,23,42,.8)';
+      button.style.color = active ? '#eff6ff' : 'var(--text-primary)';
+    });
+  };
 
   const updateSlider = (clientX) => {
     const rect = container.getBoundingClientRect();
@@ -490,11 +535,23 @@ function openFullscreenViewer(trade) {
     afterImage.style.width = `${rect.width}px`;
   };
 
+  setComparisonMode('before');
+
   // Align image size initially on render
   setTimeout(() => {
     const rect = container.getBoundingClientRect();
     afterImage.style.width = `${rect.width}px`;
   }, 100);
+
+  toggleButtons.forEach(button => {
+    button.addEventListener('click', () => setComparisonMode(button.dataset.mode));
+  });
+
+  container.addEventListener('click', (event) => {
+    const rect = container.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    setComparisonMode(clickX < rect.width / 2 ? 'before' : 'after');
+  });
 
   handle.addEventListener('mousedown', () => isDragging = true);
   window.addEventListener('mouseup', () => isDragging = false);
